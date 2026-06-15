@@ -13,9 +13,12 @@ import { BottomTabInset, MaxContentWidth, Spacing } from "@/constants/theme";
 import { ExternalLink } from "@/components/external-link";
 import { Link } from "expo-router/build/react-navigation";
 import { navigate } from "expo-router/build/react-navigation/routers/CommonActions";
+import { getGames } from "@/api/pandascore";
+import { useEffect, useState } from "react";
 
 export default function HomeScreen() {
   const { favorites, loaded } = useFavorites();
+  const [games, setGames] = useState();
   const theme = useTheme();
 
   const safeAreaInsets = useSafeAreaInsets();
@@ -50,6 +53,15 @@ export default function HomeScreen() {
             Welcome to&nbsp;Retake
           </ThemedText>
           <ThemedText>The place for live CS2 stats and updates</ThemedText>
+        </ThemedView>
+
+        <ThemedView type="backgroundElement" style={styles.stepContainer}>
+          <ThemedView type="backgroundElement" style={styles.favoritesList}>
+            {
+              current_games
+              //test
+            }
+          </ThemedView>
         </ThemedView>
 
         <ThemedText type="title" style={styles.title}>
