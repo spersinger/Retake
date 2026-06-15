@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE_URL = "https://api.pandascore.co/";
+const BASE_URL = "https://api.pandascore.co";
 
 interface GetTeamsParams {
   page?: number;
@@ -21,55 +21,69 @@ function cacheKey(params: GetTeamsParams): string {
   return `${params.page ?? 1}-${params.perPage ?? 25}-${params.search ?? ""}`;
 }
 function gameCacheKey(params: GetGamesParams): string {
-  return `${params.page ?? 1}-${params.perPage ?? 25}-${params.team_ids ?? ""}`;
+  const teamIdsStr = Array.isArray(params.team_ids)
+    ? params.team_ids.join(",")
+    : (params.team_ids ?? "");
+  return `${params.page ?? 1}-${params.perPage ?? 25}-${teamIdsStr}`;
 }
 
 export const getGames = async ({
   page = 1,
-  perPage = 50, // Pandascore defaults to 50 for this endpoint
+  perPage = 50,
   team_ids,
 }: GetGamesParams = {}) => {
-  // Generate a distinct cache key matching the running matches parameters
-  const key = gameCacheKey({ page, perPage, team_ids });
-  const cached = cache.get(key);
+  // Generate a distinct cache key
+  const teamIdsStr = Array.isArray(team_ids)
+    ? team_ids.join(",")
+    : (team_ids ?? "");
+  const key = `games-${page}-${perPage}-${teamIdsStr}`;
 
+  const cached = cache.get(key);
   if (cached && Date.now() < cached.expiry) {
     return cached.data;
   }
 
   try {
-    // 1. Build query parameters supported by /matches/running
+    // 1. Target the main /csgo/matches endpoint instead of /running
     const params: Record<string, any> = {
       page,
       per_page: perPage,
+      // CRITICAL: Tells Pandascore to only give us live matches AND future matches
+      "filter[status]": "running,not_started",
+      // Sort matches so that live ones or soonest ones appear first
+      sort: "begin_at",
     };
 
     // 2. Filter by opponent IDs if provided
     if (team_ids) {
-      // Pandascore filtering expects comma-separated strings for array types: "1,2,3"
       params["filter[opponent_id]"] = Array.isArray(team_ids)
         ? team_ids.join(",")
-        : team_ids;
+        : team_ids.toString();
 
-      // Ensure we target teams specifically rather than player matches
       params["filter[winner_type]"] = "Team";
     }
 
-    // 3. Make the API request to the /matches/running endpoint
-    const response = await axios.get(`${BASE_URL}/matches/running`, {
+    // 3. Make the API request
+    const response = await axios.get(`${BASE_URL}/csgo/matches`, {
       headers: {
         Authorization: `Bearer ${process.env.EXPO_PUBLIC_PANDASCORE_TOKEN}`,
         Accept: "application/json",
       },
       params: params,
+      paramsSerializer: {
+        indexes: null,
+      },
     });
 
-    // 4. Cache and return the live match data
     cache.set(key, { data: response.data, expiry: Date.now() + TTL });
-
     return response.data;
   } catch (error) {
-    console.error("Error fetching live matches:", error);
+    if (axios.isAxiosError(error)) {
+      console.error("Axios Error Status:", error.response?.status);
+      console.error("Axios Error Data:", error.response?.data);
+    } else {
+      console.error("Error fetching matches:", error);
+    }
     return [];
   }
 };

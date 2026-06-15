@@ -1,4 +1,9 @@
-import { Platform, ScrollView, StyleSheet } from "react-native";
+import {
+  Platform,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimatedIcon } from "@/components/animated-icon";
@@ -14,11 +19,16 @@ import { ExternalLink } from "@/components/external-link";
 import { Link } from "expo-router/build/react-navigation";
 import { navigate } from "expo-router/build/react-navigation/routers/CommonActions";
 import { getGames } from "@/api/pandascore";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { TeamData } from "@/components/ui/team-view";
+import { Match, MatchData } from "@/components/ui/match";
+
+const PER_PAGE = 25;
 
 export default function HomeScreen() {
   const { favorites, loaded } = useFavorites();
-  const [games, setGames] = useState();
+  const [loading, setLoading] = useState(true);
+  const [games, setGames] = useState<any[]>();
   const theme = useTheme();
 
   const safeAreaInsets = useSafeAreaInsets();
@@ -40,6 +50,34 @@ export default function HomeScreen() {
     },
   });
 
+  const fetchGames = useCallback(
+    async (pageNum: number, favoriteIds: number[]) => {
+      const data: any = await getGames({
+        page: pageNum,
+        perPage: PER_PAGE,
+        team_ids: favoriteIds,
+      });
+
+      setGames(data);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    // Guard clause: Do nothing if the favorites haven't finished loading
+    setLoading(true);
+    if (!loaded) return;
+
+    const favoriteIds: number[] = favorites.map((team: TeamData) => team.id);
+    console.log("Loaded Favorite IDs:", favoriteIds);
+
+    // Only fetch games if the user actually has favorites
+    if (favoriteIds.length > 0) {
+      fetchGames(1, favoriteIds);
+      setLoading(false);
+    }
+  }, [favorites, loaded]); // Re-run whenever favorites or loaded state changes
+
   return (
     <ScrollView
       style={[styles.scrollView, { backgroundColor: theme.background }]}
@@ -56,11 +94,21 @@ export default function HomeScreen() {
         </ThemedView>
 
         <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <ThemedView type="backgroundElement" style={styles.favoritesList}>
-            {
-              current_games
-              //test
-            }
+          <ThemedView
+            style={[
+              styles.favoritesList,
+              { backgroundColor: theme.backgroundElement },
+            ]}
+          >
+            {loading ? (
+              <ActivityIndicator />
+            ) : (
+              <>
+                {games?.map((game: MatchData) => (
+                  <Match match={game} key={game.id} />
+                ))}
+              </>
+            )}
           </ThemedView>
         </ThemedView>
 
