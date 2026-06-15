@@ -1,4 +1,4 @@
-# <img src="assets/images/icon.png" alt="App Icon" width="32" /> Retake
+# <img src="assets/images/icon.png" alt="App Icon" width="64" /> Retake
 
 <p align="center">
   <img src="assets/images/app-screenshot.png" alt="App Screenshot" width="300" />
