@@ -1,9 +1,10 @@
-import { Image } from "expo-image";
+import { Image as ExpoImage } from "expo-image";
 import { Pressable, StyleSheet, View } from "react-native";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { useTheme } from "@/hooks/use-theme";
 import { Spacing } from "@/constants/theme";
+import { useMatchDetails } from "@/hooks/use-match-details";
 
 // Relying on a clean structure for the match data from Pandascore
 export interface MatchData {
@@ -22,13 +23,18 @@ export interface MatchData {
 
 interface MatchProps {
   match: MatchData;
-  onPress?: (match: MatchData) => void;
 }
 
-export const Match = ({ match, onPress }: MatchProps) => {
+export const Match = ({ match }: MatchProps) => {
   const theme = useTheme();
   const leagueLogoUri = match.league?.image_url;
+
+  const { openMatchDetails, matchId, closeMatchDetails } = useMatchDetails();
+
   const isLive = match.status === "running";
+  const handleGamePress = () => {
+    openMatchDetails(match.id);
+  };
 
   // Formats the UTC timestamp into local hours/dates cleanly
   const formattedTime = new Date(match.begin_at).toLocaleString([], {
@@ -40,58 +46,62 @@ export const Match = ({ match, onPress }: MatchProps) => {
 
   return (
     <Pressable
-      onPress={() => onPress?.(match)}
+      onPress={handleGamePress}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
-      {/* League Logo / Fallback */}
-      {leagueLogoUri ? (
-        <Image
-          source={{ uri: leagueLogoUri }}
-          style={styles.logo}
-          contentFit="contain"
-        />
-      ) : (
-        <View
-          style={[styles.logoFallback, { backgroundColor: theme.background }]}
-        >
-          <ThemedText style={styles.logoFallbackText}>
-            {match.league?.name.slice(0, 2) ?? "VS"}
-          </ThemedText>
-        </View>
-      )}
-
-      {/* Match Details */}
-      <ThemedView style={styles.info}>
-        <ThemedText style={styles.name} numberOfLines={1}>
-          {match.name}
-        </ThemedText>
-
-        <ThemedView style={styles.metaRow}>
-          {match.league?.name ? (
-            <ThemedText themeColor="textSecondary" style={styles.meta}>
-              {match.league.name}
-            </ThemedText>
-          ) : null}
-
-          {match.serie?.name ? (
-            <ThemedText themeColor="textSecondary" style={styles.meta}>
-              • {match.serie.name}
-            </ThemedText>
-          ) : null}
-        </ThemedView>
-      </ThemedView>
-
-      {/* Status & Time Container */}
-      <ThemedView style={styles.statusContainer}>
-        {isLive ? (
-          <ThemedView style={styles.liveBadge}>
-            <ThemedText style={styles.liveText}>• LIVE</ThemedText>
-          </ThemedView>
+      <ThemedView
+        style={[styles.row, { backgroundColor: theme.backgroundElement }]}
+      >
+        {/* League Logo / Fallback */}
+        {leagueLogoUri ? (
+          <ExpoImage
+            source={{ uri: leagueLogoUri }}
+            style={styles.logo}
+            contentFit="contain"
+          />
         ) : (
-          <ThemedText themeColor="textSecondary" style={styles.timeText}>
-            {formattedTime}
-          </ThemedText>
+          <View
+            style={[styles.logoFallback, { backgroundColor: theme.background }]}
+          >
+            <ThemedText style={styles.logoFallbackText}>
+              {match.league?.name.slice(0, 2) ?? "VS"}
+            </ThemedText>
+          </View>
         )}
+
+        {/* Match Details */}
+        <ThemedView style={styles.info}>
+          <ThemedText style={styles.name} numberOfLines={1}>
+            {match.name}
+          </ThemedText>
+
+          <ThemedView style={styles.metaRow}>
+            {match.league?.name ? (
+              <ThemedText themeColor="textSecondary" style={styles.meta}>
+                {match.league.name}
+              </ThemedText>
+            ) : null}
+
+            {match.serie?.name ? (
+              <ThemedText themeColor="textSecondary" style={styles.meta}>
+                • {match.serie.name}
+              </ThemedText>
+            ) : null}
+          </ThemedView>
+        </ThemedView>
+
+        {/* Status & Time Container */}
+        <ThemedView style={styles.statusContainer}>
+          {isLive ? (
+            <ThemedView style={styles.liveBadge}>
+              <ThemedText style={styles.liveText}>• LIVE</ThemedText>
+            </ThemedView>
+          ) : (
+            <ThemedText themeColor="textSecondary" style={styles.timeText}>
+              {formattedTime}
+            </ThemedText>
+          )}
+        </ThemedView>
       </ThemedView>
     </Pressable>
   );

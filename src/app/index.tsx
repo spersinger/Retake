@@ -1,27 +1,17 @@
-import {
-  Platform,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-} from "react-native";
+import { Platform, ScrollView, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimatedIcon } from "@/components/animated-icon";
-import { HintRow } from "@/components/hint-row";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { WebBadge } from "@/components/web-badge";
-import { Team } from "@/components/ui/team-view";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useTheme } from "@/hooks/use-theme";
 import { BottomTabInset, MaxContentWidth, Spacing } from "@/constants/theme";
-import { ExternalLink } from "@/components/external-link";
-import { Link } from "expo-router/build/react-navigation";
-import { navigate } from "expo-router/build/react-navigation/routers/CommonActions";
 import { getGames } from "@/api/pandascore";
 import { useEffect, useState, useCallback } from "react";
 import { TeamData } from "@/components/ui/team-view";
-import { Match, MatchData } from "@/components/ui/match";
+import { MatchView } from "@/components/ui/MatchView";
 
 const PER_PAGE = 25;
 
@@ -88,46 +78,11 @@ export default function HomeScreen() {
         <ThemedView style={styles.heroSection}>
           <AnimatedIcon />
           <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Retake
+            Today's Matches
           </ThemedText>
-          <ThemedText>The place for live CS2 stats and updates</ThemedText>
         </ThemedView>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <ThemedView
-            style={[
-              styles.favoritesList,
-              { backgroundColor: theme.backgroundElement },
-            ]}
-          >
-            {loading ? (
-              <ActivityIndicator />
-            ) : (
-              <>
-                {games?.map((game: MatchData) => (
-                  <Match match={game} key={game.id} />
-                ))}
-              </>
-            )}
-          </ThemedView>
-        </ThemedView>
-
-        <ThemedText type="title" style={styles.title}>
-          Followed Teams
-        </ThemedText>
-        {loaded && favorites.length > 0 ? (
-          <ThemedView type="backgroundElement" style={styles.favoritesList}>
-            {favorites.map((team) => (
-              <Team key={team.id} team={team} />
-            ))}
-          </ThemedView>
-        ) : (
-          <ThemedView type="backgroundElement" style={styles.stepContainer}>
-            <Link href="/teams" action={navigate("teams")}>
-              <ThemedText>Go to teams tab and follow teams!</ThemedText>
-            </Link>
-          </ThemedView>
-        )}
+        <MatchView games={games} loading={loading}></MatchView>
 
         {Platform.OS === "web" && <WebBadge />}
       </ThemedView>
@@ -147,7 +102,6 @@ const styles = StyleSheet.create({
   container: {
     maxWidth: MaxContentWidth,
     flexGrow: 1,
-    paddingHorizontal: Spacing.four,
     gap: Spacing.three,
     alignItems: "center",
   },
@@ -162,8 +116,6 @@ const styles = StyleSheet.create({
   stepContainer: {
     gap: Spacing.three,
     alignSelf: "stretch",
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
     borderRadius: Spacing.four,
   },
   favoritesList: {

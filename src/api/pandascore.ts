@@ -14,18 +14,24 @@ export interface GetGamesParams {
   team_ids?: number | number[]; // Pandascore accepts single IDs or arrays for filters
 }
 
+export interface GetGameParams {
+  match_id: number;
+}
+
 const cache = new Map<string, { data: unknown; expiry: number }>();
 const TTL = 5 * 60 * 1000;
 
 function cacheKey(params: GetTeamsParams): string {
   return `${params.page ?? 1}-${params.perPage ?? 25}-${params.search ?? ""}`;
 }
-function gameCacheKey(params: GetGamesParams): string {
-  const teamIdsStr = Array.isArray(params.team_ids)
-    ? params.team_ids.join(",")
-    : (params.team_ids ?? "");
-  return `${params.page ?? 1}-${params.perPage ?? 25}-${teamIdsStr}`;
-}
+
+export const getMatch = async ({ match_id }: GetGameParams) => {
+  const key = `${match_id}`;
+  const cached = cache.get(key);
+  if (cached && Date.now() < cached.expiry) {
+    return cached.data;
+  }
+};
 
 export const getGames = async ({
   page = 1,
@@ -43,13 +49,38 @@ export const getGames = async ({
     return cached.data;
   }
 
+  const now = new Date();
+
+  // 2. Set to 00:00:00.000 in the user's LOCAL timezone
+  const startOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    0,
+    0,
+    0,
+    0,
+  );
+
+  // 3. Set to 23:59:59.999 in the user's LOCAL timezone
+  const endOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    23,
+    59,
+    59,
+    999,
+  );
+
   try {
     // 1. Target the main /csgo/matches endpoint instead of /running
     const params: Record<string, any> = {
       page,
       per_page: perPage,
       // CRITICAL: Tells Pandascore to only give us live matches AND future matches
-      "filter[status]": "running,not_started",
+      //"range[begin_at]": `${startOfToday},${endOfToday}`,
+      "range[begin_at]": `${startOfToday.toISOString()},${endOfToday.toISOString()}`,
       // Sort matches so that live ones or soonest ones appear first
       sort: "begin_at",
     };
@@ -74,6 +105,7 @@ export const getGames = async ({
         indexes: null,
       },
     });
+    console.log(response);
 
     cache.set(key, { data: response.data, expiry: Date.now() + TTL });
     return response.data;
