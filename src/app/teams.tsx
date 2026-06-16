@@ -17,6 +17,7 @@ import { getTeams } from "@/api/pandascore";
 import { Team, TeamData } from "@/components/ui/team-view";
 
 import AntDesign from "@expo/vector-icons/AntDesign";
+import { useFavorites } from "@/hooks/use-favorites";
 
 interface Team {
   id: number;
@@ -34,6 +35,8 @@ export default function TeamTabScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [focused, setFocused] = useState(false);
   const borderAnim = useRef(new Animated.Value(0)).current;
+
+  const { favorites, loaded } = useFavorites();
 
   useEffect(() => {
     Animated.timing(borderAnim, {
@@ -114,10 +117,7 @@ export default function TeamTabScreen() {
       <ThemedView style={styles.container}>
         <ThemedView style={styles.titleContainer}>
           <ThemedText type="subtitle">Teams</ThemedText>
-          <ThemedView
-            type="backgroundElement"
-            style={styles.searchRow}
-          >
+          <ThemedView type="backgroundElement" style={styles.searchRow}>
             <Animated.View
               style={[
                 styles.searchBorder,
@@ -134,16 +134,29 @@ export default function TeamTabScreen() {
               returnKeyType="search"
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
-              style={[styles.searchInput, { color: theme.text }, Platform.select({ web: { outlineStyle: "none" as any } })]}
+              style={[
+                styles.searchInput,
+                { color: theme.text },
+                Platform.select({ web: { outlineStyle: "none" as any } }),
+              ]}
             />
-            <Pressable
-              onPress={handleSearch}
-              style={styles.searchButton}
-            >
+            <Pressable onPress={handleSearch} style={styles.searchButton}>
               <ThemedText style={styles.searchButtonText}>Search</ThemedText>
             </Pressable>
           </ThemedView>
         </ThemedView>
+
+        {loaded && favorites.length > 0 ? (
+          <ThemedView type="backgroundElement" style={styles.favoritesList}>
+            {favorites.map((team) => (
+              <Team key={team.id} team={team} />
+            ))}
+          </ThemedView>
+        ) : (
+          <ThemedView type="backgroundElement" style={styles.contentContainer}>
+            <ThemedText>Follow some teams!</ThemedText>
+          </ThemedView>
+        )}
 
         <ThemedView style={styles.sectionsWrapper}>
           {teams.length === 0 && loading ? (
@@ -168,6 +181,12 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  favoritesList: {
+    alignSelf: "stretch",
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Spacing.four,
+  },
   contentContainer: {
     flexDirection: "row",
     justifyContent: "center",
@@ -175,11 +194,11 @@ const styles = StyleSheet.create({
   container: {
     maxWidth: MaxContentWidth,
     flexGrow: 1,
+    paddingHorizontal: Spacing.four,
   },
   titleContainer: {
     gap: Spacing.three,
     alignItems: "center",
-    paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.six,
   },
   centerText: {
@@ -199,7 +218,6 @@ const styles = StyleSheet.create({
   },
   sectionsWrapper: {
     gap: Spacing.five,
-    paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
   },
   collapsibleContent: {
@@ -244,6 +262,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     alignItems: "center",
+    padding: 10,
     justifyContent: "center",
     borderLeftWidth: 1,
     borderLeftColor: "rgba(128,128,128,0.3)",
