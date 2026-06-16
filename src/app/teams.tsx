@@ -194,11 +194,11 @@ const styles = StyleSheet.create({
   container: {
     maxWidth: MaxContentWidth,
     flexGrow: 1,
+    paddingHorizontal: Spacing.four,
   },
   titleContainer: {
     gap: Spacing.three,
     alignItems: "center",
-    paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.six,
   },
   centerText: {
@@ -218,7 +218,6 @@ const styles = StyleSheet.create({
   },
   sectionsWrapper: {
     gap: Spacing.five,
-    paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
   },
   collapsibleContent: {
@@ -263,6 +262,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     alignItems: "center",
+    padding: 10,
     justifyContent: "center",
     borderLeftWidth: 1,
     borderLeftColor: "rgba(128,128,128,0.3)",

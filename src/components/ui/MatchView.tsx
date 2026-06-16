@@ -1,5 +1,5 @@
 import { ThemedView } from "../themed-view";
-import { Spacing } from "@/constants/theme";
+import { Spacing, MaxContentWidth } from "@/constants/theme";
 
 import { ActivityIndicator } from "react-native";
 import { MatchData } from "./match";
@@ -46,6 +46,7 @@ const styles = StyleSheet.create({
   container: {
     gap: Spacing.three,
     alignSelf: "stretch",
+    maxWidth: MaxContentWidth,
     borderRadius: Spacing.four,
   },
   matchViewContainer: {

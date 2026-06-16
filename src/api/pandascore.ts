@@ -12,6 +12,7 @@ export interface GetGamesParams {
   page?: number;
   perPage?: number;
   team_ids?: number | number[]; // Pandascore accepts single IDs or arrays for filters
+  day?: number;
 }
 
 export interface GetGameParams {
@@ -31,18 +32,40 @@ export const getMatch = async ({ match_id }: GetGameParams) => {
   if (cached && Date.now() < cached.expiry) {
     return cached.data;
   }
+  try {
+    console.log(`Fetching match ${match_id}`);
+    const response = await axios.get(`${BASE_URL}/matches/${match_id}`, {
+      headers: {
+        Authorization: `Bearer ${process.env.EXPO_PUBLIC_PANDASCORE_TOKEN}`,
+        Accept: "application/json",
+      },
+    });
+    console.log(response);
+
+    cache.set(key, { data: response.data, expiry: Date.now() + TTL });
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error("Axios Error Status:", error.response?.status);
+      console.error("Axios Error Data:", error.response?.data);
+    } else {
+      console.error("Error fetching matches:", error);
+    }
+    return [];
+  }
 };
 
 export const getGames = async ({
   page = 1,
   perPage = 50,
   team_ids,
+  day = 0,
 }: GetGamesParams = {}) => {
   // Generate a distinct cache key
   const teamIdsStr = Array.isArray(team_ids)
     ? team_ids.join(",")
     : (team_ids ?? "");
-  const key = `games-${page}-${perPage}-${teamIdsStr}`;
+  const key = `games-${page}-${perPage}-${teamIdsStr}-${day}`;
 
   const cached = cache.get(key);
   if (cached && Date.now() < cached.expiry) {
@@ -55,7 +78,7 @@ export const getGames = async ({
   const startOfToday = new Date(
     now.getFullYear(),
     now.getMonth(),
-    now.getDate(),
+    now.getDate() + day,
     0,
     0,
     0,
@@ -66,7 +89,7 @@ export const getGames = async ({
   const endOfToday = new Date(
     now.getFullYear(),
     now.getMonth(),
-    now.getDate(),
+    now.getDate() + day,
     23,
     59,
     59,

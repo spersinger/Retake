@@ -6,26 +6,36 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router";
 import { useColorScheme, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
-import { GlobalMatchDetailsSheet } from "@/components/ui/GlobalMatchDetailsSheet";
 import { MatchDetailsProvider } from "@/hooks/use-match-details";
+
+function MainLayout() {
+  return (
+    <>
+      <AnimatedSplashOverlay />
+      <AppTabs />
+    </>
+  );
+}
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <FavoritesProvider>
-        <GestureHandlerRootView style={styles.container}>
-          <MatchDetailsProvider>
-            <GlobalMatchDetailsSheet />
-            <AnimatedSplashOverlay />
-            <AppTabs />
-          </MatchDetailsProvider>
-        </GestureHandlerRootView>
+      <GestureHandlerRootView style={styles.gestureRoot}>
+        <MatchDetailsProvider>
+          <MainLayout />
+        </MatchDetailsProvider>
+      </GestureHandlerRootView>
       </FavoritesProvider>
     </ThemeProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  gestureRoot: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     width: "100%",

@@ -1,14 +1,14 @@
-import { createContext, useContext, useRef, useState } from "react";
-import { StyleSheet, Text } from "react-native";
+import { createContext, useContext, useRef, useState, useEffect } from "react";
 import {
   BottomSheetModal,
-  BottomSheetView,
   BottomSheetModalProvider,
 } from "@gorhom/bottom-sheet";
+import { getMatch } from "@/api/pandascore";
+import { Game } from "@/api/pandascore-types";
+import MatchDetailModal from "@/components/ui/MatchDetailsModal";
 
-// Define what other components can access
 interface MatchDetailsContextType {
-  matchId: string | null;
+  matchId: number | null;
   isOpen: boolean;
   openMatchDetails: (matchId: number) => void;
   closeMatchDetails: () => void;
@@ -21,45 +21,48 @@ const MatchDetailsContext = createContext<MatchDetailsContextType | undefined>(
 export const MatchDetailsProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }: any) => {
+  const [matchId, setMatchId] = useState<number | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
-  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [match, setMatch] = useState<any>();
+  const [games, setGames] = useState<Game[] | null>(null);
 
-  const openMatchDetails = (matchId: string) => {
-    setSelectedMatchId(matchId);
+  const openMatchDetails = (id: number) => {
+    setMatchId(id);
+    setIsOpen(true);
+    setGames(null);
     bottomSheetModalRef.current?.present();
   };
 
   const closeMatchDetails = () => {
+    setIsOpen(false);
+    setMatchId(null);
+    setGames(null);
     bottomSheetModalRef.current?.dismiss();
   };
 
+  useEffect(() => {
+    if (isOpen && matchId) {
+      getMatch({ match_id: matchId }).then(setMatch).catch(console.error);
+    }
+  }, [isOpen, matchId]);
+
   return (
     <MatchDetailsContext.Provider
-      value={{ openMatchDetails, closeMatchDetails }}
+      value={{ matchId, isOpen, openMatchDetails, closeMatchDetails }}
     >
       <BottomSheetModalProvider>
         {children}
-
-        {/* The single, global instance of the Bottom Sheet */}
-        <BottomSheetModal
-          ref={bottomSheetModalRef}
-          // '100%' makes it full-screen like the Apple Sports app snapshot
-          snapPoints={["50%", "100%"]}
-          index={0}
-        >
-          <BottomSheetView style={styles.contentContainer}>
-            <Text style={styles.titleText}>
-              Match Details ID: {selectedMatchId}
-            </Text>
-            {/* You can inject your sub-components here (e.g. <MatchSummary id={selectedMatchId} />) */}
-          </BottomSheetView>
-        </BottomSheetModal>
+        <MatchDetailModal
+          bottomSheetModalRef={bottomSheetModalRef}
+          matchData={match}
+          gamesData={games}
+        />
       </BottomSheetModalProvider>
     </MatchDetailsContext.Provider>
   );
 };
 
-// Custom hook to easily trigger the sheet anywhere
 export const useMatchDetails = () => {
   const context = useContext(MatchDetailsContext);
   if (!context) {
@@ -69,15 +72,3 @@ export const useMatchDetails = () => {
   }
   return context;
 };
-
-const styles = StyleSheet.create({
-  contentContainer: {
-    flex: 1,
-    alignItems: "center",
-    padding: 24,
-  },
-  titleText: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-});

@@ -88,10 +88,7 @@ export const Match = ({ match }: MatchProps) => {
               </ThemedText>
             ) : null}
           </ThemedView>
-        </ThemedView>
 
-        {/* Status & Time Container */}
-        <ThemedView style={styles.statusContainer}>
           {isLive ? (
             <ThemedView style={styles.liveBadge}>
               <ThemedText style={styles.liveText}>• LIVE</ThemedText>
@@ -152,21 +149,17 @@ const styles = StyleSheet.create({
   meta: {
     fontSize: 12,
   },
-  statusContainer: {
-    backgroundColor: "#0000",
-    alignItems: "flex-end",
-    justifyContent: "center",
-    paddingLeft: Spacing.two,
-  },
   timeText: {
     fontSize: 12,
-    textAlign: "right",
+    marginTop: Spacing.half,
   },
   liveBadge: {
-    backgroundColor: "#ff3144", // Matches your heart container visual accents
+    backgroundColor: "#ff3144",
+    alignSelf: "flex-start",
     paddingHorizontal: Spacing.two,
     paddingVertical: 4,
     borderRadius: Spacing.one,
+    marginTop: Spacing.half,
   },
   liveText: {
     color: "#fff",
