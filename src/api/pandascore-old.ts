@@ -1,7 +1,6 @@
 import axios from "axios";
 
 const BASE_URL = "https://api.pandascore.co";
-const RETAKE_SERVER_BASE_URL = "http://localhost:3003";
 
 interface GetTeamsParams {
   page?: number;
@@ -26,31 +25,6 @@ const TTL = 5 * 60 * 1000;
 function cacheKey(params: GetTeamsParams): string {
   return `${params.page ?? 1}-${params.perPage ?? 25}-${params.search ?? ""}`;
 }
-
-export const getHLTVMatch = async ({ match_id }: GetGameParams) => {
-  const key = `${match_id}-hltv`;
-  const cached = cache.get(key);
-  if (cached && Date.now() < cached.expiry) {
-    return cached.data;
-  }
-  try {
-    console.log(`Fetching match ${match_id}`);
-    const response = await axios.get(
-      `${RETAKE_SERVER_BASE_URL}/matches/pandascore/${match_id}`,
-    );
-
-    cache.set(key, { data: response.data, expiry: Date.now() + TTL });
-    return response.data;
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("Axios Error Status:", error.response?.status);
-      console.error("Axios Error Data:", error.response?.data);
-    } else {
-      console.error("Error fetching matches:", error);
-    }
-    return [];
-  }
-};
 
 export const getMatch = async ({ match_id }: GetGameParams) => {
   const key = `${match_id}`;
@@ -81,6 +55,70 @@ export const getMatch = async ({ match_id }: GetGameParams) => {
   }
 };
 
+// 1. Add this interface to your parameter definitions at the top
+export interface GetCustomGameRoundsParams {
+  match_id: number;
+  game_position?: number; // Optional: default to 1 (Map 1) if not provided
+}
+
+// 2. Add the function matching your exact syntax and local cache object
+export const getCustomGameRounds = async ({
+  match_id,
+  game_position = 1,
+}: GetCustomGameRoundsParams) => {
+  const key = `custom-rounds-${match_id}-${game_position}`;
+
+  // Check local Map cache
+  const cached = cache.get(key);
+  if (cached && Date.now() < cached.expiry) {
+    return cached.data;
+  }
+
+  try {
+    console.log(`Fetching custom HLTV schema for match: ${match_id}`);
+
+    // Target your local custom adapter route (adjust port if yours isn't 3000)
+    const LOCAL_API_URL = process.env.LOCAL_API_URL || "http://localhost:3000";
+    const response = await axios.get(
+      `${LOCAL_API_URL}/api/cs-match/${match_id}`,
+    );
+
+    const matchData = response.data;
+
+    // Find the specific game/map based on its position (e.g., Map 1, Map 2)
+    const targetGame = matchData.games?.find(
+      (g: any) => g.position === game_position,
+    );
+
+    if (!targetGame) {
+      console.warn(
+        `Game position ${game_position} not found in match ${match_id}`,
+      );
+      return { rounds: [], rounds_score: [] };
+    }
+
+    // Extract the exact formats you requested
+    const formattedData = {
+      rounds: targetGame.rounds || [],
+      rounds_score: targetGame.rounds_score || [],
+    };
+
+    // Save to your local cache map
+    cache.set(key, { data: formattedData, expiry: Date.now() + TTL });
+    return formattedData;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error(
+        "Axios Error Fetching Custom Game Rounds:",
+        error.response?.status,
+      );
+    } else {
+      console.error("Error fetching custom match round items:", error);
+    }
+    return { rounds: [], rounds_score: [] };
+  }
+};
+
 export const getGames = async ({
   page = 1,
   perPage = 50,
@@ -101,8 +139,8 @@ export const getGames = async ({
   const now = new Date();
   let startOfToday,
     endOfToday = new Date();
-
   if (day !== 1) {
+    // 2. Set to 00:00:00.000 in the user's LOCAL timezone
     startOfToday = new Date(
       now.getFullYear(),
       now.getMonth(),
@@ -128,7 +166,7 @@ export const getGames = async ({
     startOfToday = new Date(
       now.getFullYear(),
       now.getMonth(),
-      now.getDate() + day,
+      now.getDate() + 1,
       0,
       0,
       0,

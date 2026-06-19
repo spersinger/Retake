@@ -17,6 +17,7 @@ import { Summary } from "./MatchDetailsModal/Summary";
 import { PlayByPlay } from "./MatchDetailsModal/PlayByPlay";
 import { StreamView } from "./MatchDetailsModal/StreamView";
 import { useScrollViewOffset } from "react-native-reanimated";
+import { Match } from "@/api/hltv-types";
 
 const { width } = Dimensions.get("window");
 
@@ -24,6 +25,7 @@ interface MatchDetailModalProps {
   bottomSheetModalRef: React.RefObject<BottomSheetModal | null>;
   matchData: CSMatchResponse | null | undefined;
   gamesData?: Game[] | null;
+  HLTVData?: Match;
 }
 
 const SEGMENTS = 30;
@@ -114,6 +116,7 @@ export default function MatchDetailModal({
   bottomSheetModalRef,
   matchData,
   gamesData,
+  HLTVData,
 }: MatchDetailModalProps) {
   const [activeTab, setActiveTab] = useState<
     "Summary" | "Play-By-Play" | "Live Stream"
