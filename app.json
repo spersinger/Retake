@@ -29,7 +29,8 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "proxy": "http://localhost:3003"
     },
     "plugins": [
       "expo-router",

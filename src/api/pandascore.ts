@@ -1,7 +1,8 @@
 import axios from "axios";
 
 const BASE_URL = "https://api.pandascore.co";
-const RETAKE_SERVER_BASE_URL = "http://localhost:3003";
+const RETAKE_SERVER_BASE_URL =
+  process.env.EXPO_PUBLIC_RETAKE_SERVER_URL || "http://localhost:3003";
 
 interface GetTeamsParams {
   page?: number;
@@ -39,16 +40,18 @@ export const getHLTVMatch = async ({ match_id }: GetGameParams) => {
       `${RETAKE_SERVER_BASE_URL}/matches/pandascore/${match_id}`,
     );
 
-    cache.set(key, { data: response.data, expiry: Date.now() + TTL });
-    return response.data;
+    if (response.data) {
+      cache.set(key, { data: response.data, expiry: Date.now() + TTL });
+    }
+    console.log(`Fetched match ${match_id} from HLTV API`);
+    return response.data ?? null;
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      console.error("Axios Error Status:", error.response?.status);
-      console.error("Axios Error Data:", error.response?.data);
+      console.error("HLTV fetch failed:", error.message);
     } else {
-      console.error("Error fetching matches:", error);
+      console.error("HLTV fetch failed:", error);
     }
-    return [];
+    return null;
   }
 };
 
