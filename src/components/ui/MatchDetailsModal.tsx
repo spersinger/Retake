@@ -253,7 +253,8 @@ export default function MatchDetailModal({
 
   // 4. Extract map name/number info
   const mapLabel = useMemo(() => {
-    if (currentHLTVMap?.name) return formatMapName(currentHLTVMap.name).toUpperCase();
+    if (currentHLTVMap?.name)
+      return formatMapName(currentHLTVMap.name).toUpperCase();
     if (!currentGame) return "MAP 1";
     return `MAP ${currentGame.position}`;
   }, [currentGame, currentHLTVMap]);
@@ -344,6 +345,14 @@ export default function MatchDetailModal({
       handleIndicatorStyle={styles.modalHandle}
     >
       <BottomSheetScrollView contentContainerStyle={styles.modalContent}>
+        {/* --- CLOSE BUTTON --- */}
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={() => bottomSheetModalRef.current?.close()}
+        >
+          <Text style={styles.closeButtonText}>✕</Text>
+        </TouchableOpacity>
+
         {/* --- HEADER: Game Info --- */}
         <Text style={styles.gameStatusText}>
           {matchData?.status === "running"
@@ -359,7 +368,9 @@ export default function MatchDetailModal({
           <View style={styles.teamContainer}>
             <View style={styles.scoreWithRound}>
               <Text style={styles.scoreText}>{scoreA}</Text>
-              <Text style={styles.roundScoreText}>{currentMapScores.scoreA}</Text>
+              <Text style={styles.roundScoreText}>
+                {currentMapScores.scoreA}
+              </Text>
             </View>
             {teamALogo ? (
               <Image source={{ uri: teamALogo }} style={styles.teamLogo} />
@@ -428,7 +439,9 @@ export default function MatchDetailModal({
           <View style={styles.teamContainer}>
             <View style={styles.scoreWithRound}>
               <Text style={styles.scoreText}>{scoreB}</Text>
-              <Text style={styles.roundScoreText}>{currentMapScores.scoreB}</Text>
+              <Text style={styles.roundScoreText}>
+                {currentMapScores.scoreB}
+              </Text>
             </View>
             {teamBLogo ? (
               <Image source={{ uri: teamBLogo }} style={styles.teamLogo} />
@@ -488,6 +501,23 @@ export default function MatchDetailModal({
 }
 
 const styles = StyleSheet.create({
+  closeButton: {
+    position: "absolute",
+    top: 0,
+    right: 16,
+    zIndex: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
   modalBackground: {
     backgroundColor: "#161210",
     borderRadius: 32,
@@ -672,7 +702,10 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   placeholderText: {
-    color: "rgba(255,255,255,0.6)",
+    color: "rgba(255,255,255,0.4)",
     fontSize: 13,
+    textAlign: "center",
+    fontWeight: "bold",
+    alignSelf: "center",
   },
 });

@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, Dimensions } from "react-native";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { CSMatchResponse } from "@/api/pandascore-types";
 import { Match as HLTVMatch } from "@/api/hltv-types";
 import { formatMapName } from "@/utils/maps";
@@ -83,7 +83,10 @@ export const Summary = ({ match, HLTVData }: SummaryProps) => {
               match.status === "running" && styles.liveText,
             ]}
           >
-            {match.status.toUpperCase()}
+            {match.status
+              ? match.status.replace(/_/g, " ").charAt(0).toUpperCase() +
+                match.status.replace(/_/g, " ").slice(1).toLowerCase()
+              : ""}
           </Text>
         </View>
       </View>
@@ -94,10 +97,20 @@ export const Summary = ({ match, HLTVData }: SummaryProps) => {
         {HLTVData?.vetoes && HLTVData.vetoes.length > 0 ? (
           HLTVData.vetoes.map((veto, idx) => (
             <View key={idx} style={styles.gameLogRow}>
-              <View>
-                  <Text style={styles.gameLabel}>{formatMapName(veto.map)}</Text>
+              <View style={{ flexShrink: 1 }}>
+                <Text
+                  style={styles.gameLabel}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {formatMapName(veto.map)}
+                </Text>
                 {veto.team ? (
-                  <Text style={styles.gameDuration}>
+                  <Text
+                    style={styles.gameDuration}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
                     {veto.team.name}
                   </Text>
                 ) : null}
@@ -118,7 +131,11 @@ export const Summary = ({ match, HLTVData }: SummaryProps) => {
                     veto.type === "leftover" && styles.vetoDeciderLabel,
                   ]}
                 >
-                  {veto.type === "leftover" ? "Decider" : veto.type === "removed" ? "Banned" : "Picked"}
+                  {veto.type === "leftover"
+                    ? "Decider"
+                    : veto.type === "removed"
+                      ? "Banned"
+                      : "Picked"}
                 </Text>
               </View>
             </View>
@@ -144,19 +161,15 @@ export const Summary = ({ match, HLTVData }: SummaryProps) => {
 
             if (game.rounds_score && game.rounds_score.length > 0) {
               roundScoreA =
-                game.rounds_score.find((r) => r.team_id === teamA.id)
-                  ?.score ?? 0;
+                game.rounds_score.find((r) => r.team_id === teamA.id)?.score ??
+                0;
               roundScoreB =
-                game.rounds_score.find((r) => r.team_id === teamB.id)
-                  ?.score ?? 0;
+                game.rounds_score.find((r) => r.team_id === teamB.id)?.score ??
+                0;
             }
 
             const hltvMap = HLTVData?.maps?.[game.position - 1];
-            if (
-              !game.rounds_score?.length &&
-              hltvMap?.result &&
-              HLTVData
-            ) {
+            if (!game.rounds_score?.length && hltvMap?.result && HLTVData) {
               const aName = teamA.name?.toLowerCase();
               const bName = teamB.name?.toLowerCase();
               const t1Name = HLTVData.team1?.name?.toLowerCase();
@@ -170,26 +183,45 @@ export const Summary = ({ match, HLTVData }: SummaryProps) => {
                 ? hltvMap.result.team1TotalRounds
                 : hltvMap.result.team2TotalRounds;
             }
-            const mapName = formatMapName(hltvMap?.name) || `Game ${game.position}`;
+            const mapName =
+              formatMapName(hltvMap?.name) || `Game ${game.position}`;
             return (
               <View key={game.id} style={styles.gameLogRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.gameLabel}>{mapName}</Text>
+                <View style={styles.gameMapColumn}>
+                  <Text
+                    style={styles.gameLabel}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {mapName}
+                  </Text>
                   {game.length ? (
                     <Text style={styles.gameDuration}>
                       {formatDuration(game.length)}
                     </Text>
                   ) : null}
                 </View>
-                <Text style={styles.gameRoundScore}>
+                <Text style={styles.gameScoreColumn}>
                   {roundScoreA} - {roundScoreB}
                 </Text>
-                <View style={styles.winnerBadge}>
-                  <Text style={styles.winnerLabel}>
-                    {game.status === "finished"
-                      ? `Winner: ${winnerName}`
-                      : game.status.toUpperCase()}
-                  </Text>
+                <View style={styles.gameWinnerColumn}>
+                  <View style={styles.winnerBadge}>
+                    <Text
+                      style={styles.winnerLabel}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {game.status === "finished"
+                        ? `Winner: ${winnerName}`
+                        : game.status
+                          ? game.status
+                              .replace(/_/g, " ")
+                              .charAt(0)
+                              .toUpperCase() +
+                            game.status.replace(/_/g, " ").slice(1).toLowerCase()
+                          : ""}
+                    </Text>
+                  </View>
                 </View>
               </View>
             );
@@ -202,11 +234,6 @@ export const Summary = ({ match, HLTVData }: SummaryProps) => {
   );
 };
 
-// Get the actual width of the device screen
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-// 90% of the screen width, matching your design intent
-const CARD_WIDTH = SCREEN_WIDTH * 0.9;
-
 const styles = StyleSheet.create({
   container: {
     width: "100%",
@@ -216,7 +243,7 @@ const styles = StyleSheet.create({
   placeholderCard: {
     backgroundColor: "rgba(28,28,30,0.7)",
     borderRadius: 18,
-    width: CARD_WIDTH, // Forced explicit width
+    width: "90%",
     padding: 32,
     alignItems: "center",
     justifyContent: "center",
@@ -229,7 +256,7 @@ const styles = StyleSheet.create({
   sectionCard: {
     backgroundColor: "rgba(28,28,30,0.7)",
     borderRadius: 18,
-    width: CARD_WIDTH, // Forced explicit width to match PlayByPlay
+    width: "90%",
     padding: 20,
     marginBottom: 16,
     borderWidth: 1,
@@ -258,7 +285,8 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontSize: 14,
     fontWeight: "600",
-    maxWidth: "65%",
+    flexShrink: 1,
+    textAlign: "right",
   },
   liveText: {
     color: "#FF453A",
@@ -296,11 +324,13 @@ const styles = StyleSheet.create({
   },
   gameLogRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255,255,255,0.04)",
+  },
+  gameMapColumn: {
+    width: "40%",
   },
   gameLabel: {
     color: "#FFF",
@@ -312,12 +342,17 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
   },
-  gameRoundScore: {
+  gameScoreColumn: {
     color: "rgba(255,255,255,0.5)",
     fontSize: 14,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
-    marginHorizontal: 12,
+    width: 64,
+    textAlign: "center",
+  },
+  gameWinnerColumn: {
+    flex: 1,
+    alignItems: "flex-end",
   },
   winnerBadge: {
     backgroundColor: "rgba(255,255,255,0.05)",

@@ -44,6 +44,7 @@ export const getHLTVMatch = async ({ match_id }: GetGameParams) => {
       cache.set(key, { data: response.data, expiry: Date.now() + TTL });
     }
     console.log(`Fetched match ${match_id} from HLTV API`);
+    console.log(response.data);
     return response.data ?? null;
   } catch (error) {
     if (axios.isAxiosError(error)) {

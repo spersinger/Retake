@@ -68,6 +68,20 @@ export const StreamView = ({ match }: StreamViewProps) => {
     return match.streams_list[0];
   }, [match?.streams_list]);
 
+  // Fix Twitch embed URLs by adding the required parent parameter
+  const embedSrc = useMemo(() => {
+    if (!activeStream?.embed_url) return "";
+    try {
+      const url = new URL(activeStream.embed_url);
+      const hostname =
+        typeof window !== "undefined" ? window.location.hostname : "localhost";
+      url.searchParams.set("parent", hostname);
+      return url.toString();
+    } catch {
+      return activeStream.embed_url;
+    }
+  }, [activeStream?.embed_url]);
+
   // Handle a scenario where no stream data is provided by PandaScore
   if (!match || !activeStream) {
     return (
@@ -111,7 +125,7 @@ export const StreamView = ({ match }: StreamViewProps) => {
       <View style={styles.videoContainer}>
         {/* Standard safe iframe embed configuration for web browsers */}
         <iframe
-          src={activeStream.embed_url}
+          src={embedSrc || activeStream.embed_url}
           style={styles.webPlayer}
           allowFullScreen
           scrolling="no"
@@ -128,10 +142,10 @@ export const StreamView = ({ match }: StreamViewProps) => {
   // 3. Native Platform Output (iOS/Android Mobile UI)
   return (
     <View style={styles.nativeContainer}>
-      {WebView && activeStream.embed_url ? (
+      {WebView && (embedSrc || activeStream.embed_url) ? (
         <View style={styles.nativePlayerWrapper}>
           <WebView
-            source={{ uri: activeStream.embed_url }}
+            source={{ uri: embedSrc || activeStream.embed_url }}
             style={styles.nativePlayer}
             allowsFullscreenVideo
             mediaPlaybackRequiresUserAction={false}
@@ -178,7 +192,6 @@ const styles = StyleSheet.create({
   webPlayer: {
     width: "100%",
     height: "100%",
-    border: "none",
   },
   nativeContainer: {
     width: "100%",
