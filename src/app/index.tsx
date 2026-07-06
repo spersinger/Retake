@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ThemedText } from "@/components/themed-text";
@@ -103,11 +104,18 @@ export default function HomeScreen() {
   );
 
   return (
-    <ScrollView
-      style={styles.scrollView}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
-    >
+    <View style={styles.screenRoot}>
+      <LinearGradient
+        colors={["#0a0e1f", "#000000"]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <ScrollView
+        style={styles.scrollView}
+        contentInsetAdjustmentBehavior="never"
+        contentInset={insets}
+        contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
+      >
       <ThemedView style={[styles.container, { backgroundColor: "#0000" }]}>
         <View style={styles.tabContainer}>
           {(["Yesterday", "Today", "Upcoming"] as TabType[]).map((tab) => {
@@ -142,10 +150,14 @@ export default function HomeScreen() {
         }
       </ThemedView>
     </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screenRoot: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
   },

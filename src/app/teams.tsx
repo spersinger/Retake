@@ -4,9 +4,11 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  View,
   StyleSheet,
   TextInput,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -101,83 +103,99 @@ export default function TeamTabScreen() {
   });
 
   return (
-    <ScrollView
-      style={styles.scrollView}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
-      onScroll={({ nativeEvent }) => {
-        const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-        const isCloseToBottom =
-          layoutMeasurement.height + contentOffset.y >=
-          contentSize.height - 150;
-        if (isCloseToBottom) loadMore();
-      }}
-      scrollEventThrottle={400}
-    >
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Teams</ThemedText>
-          <ThemedView type="backgroundElement" style={styles.searchRow}>
-            <Animated.View
-              style={[
-                styles.searchBorder,
-                { transform: [{ scaleX: borderAnim }] },
-              ]}
-              pointerEvents="none"
-            />
-            <TextInput
-              placeholder="Search teams..."
-              placeholderTextColor={theme.textSecondary}
-              value={query}
-              onChangeText={setQuery}
-              onSubmitEditing={handleSearch}
-              returnKeyType="search"
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              style={[
-                styles.searchInput,
-                { color: theme.text },
-                Platform.select({ web: { outlineStyle: "none" as any } }),
-              ]}
-            />
-            <Pressable onPress={handleSearch} style={styles.searchButton}>
-              <ThemedText style={styles.searchButtonText}>Search</ThemedText>
-            </Pressable>
+    <View style={styles.screenRoot}>
+      <LinearGradient
+        colors={["#0a0e1f", "#000000"]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <ScrollView
+        style={styles.scrollView}
+        contentInsetAdjustmentBehavior="never"
+        contentInset={insets}
+        contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
+        onScroll={({ nativeEvent }) => {
+          const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+          const isCloseToBottom =
+            layoutMeasurement.height + contentOffset.y >=
+            contentSize.height - 150;
+          if (isCloseToBottom) loadMore();
+        }}
+        scrollEventThrottle={400}
+      >
+        <ThemedView style={styles.container}>
+          <ThemedView style={styles.titleContainer}>
+            <ThemedText type="subtitle">Teams</ThemedText>
+            <ThemedView type="backgroundElement" style={styles.searchRow}>
+              <Animated.View
+                style={[
+                  styles.searchBorder,
+                  { transform: [{ scaleX: borderAnim }] },
+                ]}
+                pointerEvents="none"
+              />
+              <TextInput
+                placeholder="Search teams..."
+                placeholderTextColor={theme.textSecondary}
+                value={query}
+                onChangeText={setQuery}
+                onSubmitEditing={handleSearch}
+                returnKeyType="search"
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
+                style={[
+                  styles.searchInput,
+                  { color: theme.text },
+                  Platform.select({ web: { outlineStyle: "none" as any } }),
+                ]}
+              />
+              <Pressable onPress={handleSearch} style={styles.searchButton}>
+                <ThemedText style={styles.searchButtonText}>Search</ThemedText>
+              </Pressable>
+            </ThemedView>
           </ThemedView>
-        </ThemedView>
 
-        {loaded && favorites.length > 0 ? (
-          <ThemedView type="backgroundElement" style={styles.favoritesList}>
-            {favorites.map((team) => (
-              <Team key={team.id} team={team} />
-            ))}
-          </ThemedView>
-        ) : (
-          <ThemedView type="backgroundElement" style={styles.contentContainer}>
-            <ThemedText>Follow some teams!</ThemedText>
-          </ThemedView>
-        )}
-
-        <ThemedView style={styles.sectionsWrapper}>
-          {teams.length === 0 && loading ? (
-            <ActivityIndicator />
-          ) : (
-            <>
-              {teams.map((team) => (
+          {loaded && favorites.length > 0 ? (
+            <ThemedView type="backgroundElement" style={styles.favoritesList}>
+              {favorites.map((team) => (
                 <Team key={team.id} team={team} />
               ))}
-              {loading && teams.length > 0 && (
-                <ActivityIndicator style={{ marginVertical: Spacing.three }} />
-              )}
-            </>
+            </ThemedView>
+          ) : (
+            <ThemedView
+              type="backgroundElement"
+              style={styles.contentContainer}
+            >
+              <ThemedText>Follow some teams!</ThemedText>
+            </ThemedView>
           )}
+
+          <ThemedView style={styles.sectionsWrapper}>
+            {teams.length === 0 && loading ? (
+              <ActivityIndicator />
+            ) : (
+              <>
+                {teams.map((team) => (
+                  <Team key={team.id} team={team} />
+                ))}
+                {loading && teams.length > 0 && (
+                  <ActivityIndicator
+                    style={{ marginVertical: Spacing.three }}
+                  />
+                )}
+              </>
+            )}
+          </ThemedView>
         </ThemedView>
-      </ThemedView>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screenRoot: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
   },

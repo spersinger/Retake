@@ -54,7 +54,7 @@ export const Match = ({ match }: MatchProps) => {
       onPress={handleGamePress}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
-      <View style={styles.row}>
+      <View style={[styles.row, styles.rowInner]}>
         {/* League Logo / Fallback */}
         {leagueLogoUri ? (
           <ExpoImage
@@ -121,6 +121,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
     gap: Spacing.three,
     alignSelf: "stretch",
+  },
+  rowInner: {
+    flex: 1,
   },
   pressed: {
     opacity: 0.6,
