@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
   container: {
     alignSelf: "center",
     maxWidth: MaxContentWidth,
-    width: "80%",
+    width: "100%",
     borderRadius: Spacing.four,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
