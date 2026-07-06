@@ -1,11 +1,9 @@
-import { ThemedView } from "../themed-view";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { Spacing, MaxContentWidth } from "@/constants/theme";
-
-import { ActivityIndicator } from "react-native";
 import { MatchData } from "./match";
-import { useTheme } from "@/hooks/use-theme";
 import { Match } from "./match";
-import { StyleSheet } from "react-native";
+import { ThemedText } from "../themed-text";
+import { ThemedView } from "../themed-view";
 
 interface MatchViewTypes {
   games: any;
@@ -13,46 +11,45 @@ interface MatchViewTypes {
 }
 
 export const MatchView = ({ games, loading }: MatchViewTypes) => {
-  const theme = useTheme();
-
   return (
     <ThemedView type="backgroundElement" style={styles.container}>
-      <ThemedView
-        style={[
-          styles.matchViewContainer,
-          { backgroundColor: theme.backgroundElement },
-        ]}
-      >
-        {loading ? (
-          <ActivityIndicator />
-        ) : (
-          <>
-            {games?.map((game: MatchData) => (
-              <ThemedView
-                style={{ backgroundColor: theme.backgroundElement }}
-                key={game.id}
-              >
-                <Match match={game} />
-              </ThemedView>
-            ))}
-          </>
-        )}
-      </ThemedView>
+      {loading ? (
+        <ActivityIndicator />
+      ) : games && games.length > 0 ? (
+        <>
+          {games?.map((game: MatchData) => (
+            <View key={game.id}>
+              <Match match={game} />
+            </View>
+          ))}
+        </>
+      ) : (
+        <View style={styles.emptyState}>
+          <ThemedText style={styles.emptyStateText}>
+            No matches found for this day
+          </ThemedText>
+        </View>
+      )}
     </ThemedView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    gap: Spacing.three,
-    alignSelf: "stretch",
+    alignSelf: "center",
     maxWidth: MaxContentWidth,
+    width: "80%",
     borderRadius: Spacing.four,
-  },
-  matchViewContainer: {
-    alignSelf: "stretch",
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    borderRadius: Spacing.four,
+  },
+  emptyState: {
+    paddingVertical: 48,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyStateText: {
+    fontSize: 14,
+    opacity: 0.5,
   },
 });

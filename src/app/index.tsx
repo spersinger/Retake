@@ -104,11 +104,11 @@ export default function HomeScreen() {
 
   return (
     <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
+      style={styles.scrollView}
       contentInset={insets}
       contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
     >
-      <ThemedView style={styles.container}>
+      <ThemedView style={[styles.container, { backgroundColor: "#0000" }]}>
         <View style={styles.tabContainer}>
           {(["Yesterday", "Today", "Upcoming"] as TabType[]).map((tab) => {
             const isSelected = activeTab === tab;
@@ -137,7 +137,9 @@ export default function HomeScreen() {
 
         <MatchView games={games} loading={loading} />
 
-        {Platform.OS === "web" && <WebBadge />}
+        {
+          //Platform.OS === "web" && <WebBadge />}
+        }
       </ThemedView>
     </ScrollView>
   );

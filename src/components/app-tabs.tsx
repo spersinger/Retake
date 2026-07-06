@@ -29,13 +29,6 @@ export default function AppTabs() {
         />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="about">
-        <NativeTabs.Trigger.Label>About</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require("@/assets/images/tabIcons/explore.png")}
-          renderingMode="template"
-        />
-      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }

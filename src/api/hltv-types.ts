@@ -43,8 +43,16 @@ export interface Stream {
 }
 
 export interface HighlightedPlayers {
-  team1: Player;
-  team2: Player;
+  team1: Player & { image?: string; stats?: { killsPerRound?: number; deathsPerRound?: number; impact?: number } };
+  team2: Player & { image?: string; stats?: { killsPerRound?: number; deathsPerRound?: number; impact?: number } };
+}
+
+export interface HeadToHeadEntry {
+  date?: number;
+  result?: string;
+  winner?: { name?: string; id?: number };
+  event?: { name?: string; id?: number };
+  map?: string;
 }
 
 export type VetoType = "removed" | "picked" | "leftover";
@@ -56,6 +64,13 @@ export interface Veto {
 }
 
 export type MatchStatus = "Live" | "Finished" | "Upcoming";
+
+export interface CurrentScore {
+  ctScore: number;
+  tScore: number;
+  team1Score?: number;
+  team2Score?: number;
+}
 
 export interface Match {
   id: number;
@@ -75,9 +90,11 @@ export interface Match {
   status: MatchStatus;
   hasScorebot: boolean;
   highlightedPlayers: HighlightedPlayers;
-  headToHead: unknown[];
+  headToHead: HeadToHeadEntry[];
   vetoes: Veto[];
   highlights: unknown[];
   demos: unknown[];
   odds: unknown[];
+  currentScore?: CurrentScore;
+  timeRemaining?: number;
 }

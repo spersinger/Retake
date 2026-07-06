@@ -11,7 +11,7 @@ export function WebBadge() {
   const scheme = useColorScheme();
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={[styles.container, { backgroundColor: "#0000" }]}>
       <ThemedText
         type="code"
         themeColor="textSecondary"

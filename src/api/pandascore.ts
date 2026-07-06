@@ -28,11 +28,16 @@ function cacheKey(params: GetTeamsParams): string {
   return `${params.page ?? 1}-${params.perPage ?? 25}-${params.search ?? ""}`;
 }
 
-export const getHLTVMatch = async ({ match_id }: GetGameParams) => {
+export const getHLTVMatch = async (
+  { match_id }: GetGameParams,
+  skipCache?: boolean,
+) => {
   const key = `${match_id}-hltv`;
-  const cached = cache.get(key);
-  if (cached && Date.now() < cached.expiry) {
-    return cached.data;
+  if (!skipCache) {
+    const cached = cache.get(key);
+    if (cached && Date.now() < cached.expiry) {
+      return cached.data;
+    }
   }
   try {
     console.log(`Fetching match ${match_id}`);
@@ -45,6 +50,7 @@ export const getHLTVMatch = async ({ match_id }: GetGameParams) => {
     }
     console.log(`Fetched match ${match_id} from HLTV API`);
     console.log(response.data);
+    console.log(`currentScore:`, (response.data as any)?.currentScore);
     return response.data ?? null;
   } catch (error) {
     if (axios.isAxiosError(error)) {
@@ -56,10 +62,13 @@ export const getHLTVMatch = async ({ match_id }: GetGameParams) => {
   }
 };
 
-export const getMatch = async ({ match_id }: GetGameParams) => {
+export const getMatch = async (
+  { match_id }: GetGameParams,
+  skipCache?: boolean,
+) => {
   const key = `${match_id}`;
   const cached = cache.get(key);
-  if (cached && Date.now() < cached.expiry) {
+  if (!skipCache && cached && Date.now() < cached.expiry) {
     return cached.data;
   }
   try {

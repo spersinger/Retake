@@ -12,6 +12,7 @@ interface MatchDetailsContextType {
   isOpen: boolean;
   openMatchDetails: (matchId: number) => void;
   closeMatchDetails: () => void;
+  refreshHLTV: () => void;
 }
 
 const MatchDetailsContext = createContext<MatchDetailsContextType | undefined>(
@@ -47,17 +48,46 @@ export const MatchDetailsProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   useEffect(() => {
-    if (isOpen && matchId) {
-      getMatch({ match_id: matchId }).then(setMatch).catch(console.error);
-      getHLTVMatch({ match_id: matchId })
-        .then(setHLTVData)
-        .catch(console.error);
-    }
+    if (!isOpen || !matchId) return;
+
+    getMatch({ match_id: matchId })
+      .then((matchData) => {
+        setMatch(matchData);
+        if (
+          matchData?.status === "running" ||
+          matchData?.status === "finished"
+        ) {
+          getHLTVMatch({ match_id: matchId })
+            .then(setHLTVData)
+            .catch(console.error);
+        }
+      })
+      .catch(console.error);
   }, [isOpen, matchId, fetchKey]);
+
+  useEffect(() => {
+    if (!isOpen || !matchId || match?.status !== "running") return;
+
+    const interval = setInterval(async () => {
+      await Promise.allSettled([
+        getMatch({ match_id: matchId }, true).then(setMatch),
+        getHLTVMatch({ match_id: matchId }, true).then(setHLTVData),
+      ]);
+    }, 45_000);
+
+    return () => clearInterval(interval);
+  }, [isOpen, matchId, match?.status]);
+
+  const refreshHLTV = () => {
+    if (!matchId) return;
+    getHLTVMatch({ match_id: matchId }, true)
+      .then(setHLTVData)
+      .catch(console.error);
+  };
 
   return (
     <MatchDetailsContext.Provider
-      value={{ matchId, isOpen, openMatchDetails, closeMatchDetails }}
+      value={{ matchId, isOpen, openMatchDetails, closeMatchDetails, refreshHLTV }}
     >
       <BottomSheetModalProvider>
         {children}

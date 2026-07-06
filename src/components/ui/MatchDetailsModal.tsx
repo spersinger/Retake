@@ -19,8 +19,9 @@ import { StreamView } from "./MatchDetailsModal/StreamView";
 import { useScrollViewOffset } from "react-native-reanimated";
 import { Match } from "@/api/hltv-types";
 import { formatMapName } from "@/utils/maps";
+import { useMatchDetails } from "@/hooks/use-match-details";
 
-const { width } = Dimensions.get("window");
+const { width, height: screenHeight } = Dimensions.get("window");
 
 interface MatchDetailModalProps {
   bottomSheetModalRef: React.RefObject<BottomSheetModal | null>;
@@ -123,6 +124,8 @@ export default function MatchDetailModal({
     "Summary" | "Play-By-Play" | "Live Stream"
   >("Summary");
 
+  const { refreshHLTV } = useMatchDetails();
+
   const teamA = matchData?.opponents?.[0]?.opponent || {
     id: -1,
     name: "Team A",
@@ -134,8 +137,37 @@ export default function MatchDetailModal({
     image_url: null,
   };
 
-  const scoreA = matchData?.results?.[0]?.score ?? 4;
-  const scoreB = matchData?.results?.[1]?.score ?? 4;
+  // 2. Map HLTV teams to PandaScore opponent ordering
+  const hltvTeamMapping = useMemo(() => {
+    if (!HLTVData) return null;
+    const aName = teamA.name?.toLowerCase();
+    const bName = teamB.name?.toLowerCase();
+    const t1Name = HLTVData.team1?.name?.toLowerCase();
+    const t2Name = HLTVData.team2?.name?.toLowerCase();
+    return {
+      teamAIsTeam1: aName === t1Name,
+      teamAIsTeam2: aName === t2Name,
+      teamBIsTeam1: bName === t1Name,
+      teamBIsTeam2: bName === t2Name,
+    };
+  }, [HLTVData, teamA.name, teamB.name]);
+
+  const liveScoreA = useMemo(() => {
+    if (!HLTVData?.currentScore || !hltvTeamMapping) return null;
+    const { team1Score, team2Score } = HLTVData.currentScore;
+    if (team1Score === undefined || team2Score === undefined) return null;
+    return hltvTeamMapping.teamAIsTeam1 ? team1Score : team2Score;
+  }, [HLTVData?.currentScore, hltvTeamMapping]);
+
+  const liveScoreB = useMemo(() => {
+    if (!HLTVData?.currentScore || !hltvTeamMapping) return null;
+    const { team1Score, team2Score } = HLTVData.currentScore;
+    if (team1Score === undefined || team2Score === undefined) return null;
+    return hltvTeamMapping.teamBIsTeam1 ? team1Score : team2Score;
+  }, [HLTVData?.currentScore, hltvTeamMapping]);
+
+  const scoreA = liveScoreA ?? matchData?.results?.[0]?.score ?? 4;
+  const scoreB = liveScoreB ?? matchData?.results?.[1]?.score ?? 4;
 
   // Resolve visual configuration values using useMemo
   const teamAVisuals = useMemo(
@@ -154,6 +186,8 @@ export default function MatchDetailModal({
   const teamALogo = teamAVisuals.logo || teamA.image_url;
   const teamBLogo = teamBVisuals.logo || teamB.image_url;
 
+  const tiltAngle = useMemo(() => (Math.random() - 0.5) * 4, []);
+
   // Safely map background segment elements matching generated HSL color configurations
   const gradientSegments = useMemo(
     () =>
@@ -169,10 +203,10 @@ export default function MatchDetailModal({
   );
 
   const patternDots = useMemo(() => {
-    const cols = 18;
-    const rows = 40;
     const gap = 16;
     const dotSize = 2;
+    const cols = Math.ceil(width / gap) + 1;
+    const rows = Math.ceil(screenHeight / gap) + 10;
     const dots: React.JSX.Element[] = [];
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -203,7 +237,7 @@ export default function MatchDetailModal({
     (props: { style?: any }) => {
       return (
         <View style={[props.style, styles.modalBackground]}>
-          <View style={styles.gradientContainer}>
+          <View style={[styles.gradientContainer, { transform: [{ rotate: `${tiltAngle}deg` }, { scale: 1.2 }] }]}>          
             {gradientSegments.map((seg, i) => (
               <View key={i} style={seg} />
             ))}
@@ -215,7 +249,7 @@ export default function MatchDetailModal({
         </View>
       );
     },
-    [gradientSegments, patternDots],
+    [gradientSegments, patternDots, tiltAngle],
   );
   // 1. Find the active game (currently running) or fallback to the last game played/playing
   const currentGame = useMemo(() => {
@@ -229,21 +263,6 @@ export default function MatchDetailModal({
     // If none are running (e.g. finished or scheduled), grab the last available game element
     return source[source.length - 1];
   }, [gamesData, matchData?.games]);
-
-  // 2. Map HLTV teams to PandaScore opponent ordering
-  const hltvTeamMapping = useMemo(() => {
-    if (!HLTVData) return null;
-    const aName = teamA.name?.toLowerCase();
-    const bName = teamB.name?.toLowerCase();
-    const t1Name = HLTVData.team1?.name?.toLowerCase();
-    const t2Name = HLTVData.team2?.name?.toLowerCase();
-    return {
-      teamAIsTeam1: aName === t1Name,
-      teamAIsTeam2: aName === t2Name,
-      teamBIsTeam1: bName === t1Name,
-      teamBIsTeam2: bName === t2Name,
-    };
-  }, [HLTVData, teamA.name, teamB.name]);
 
   // 3. Find the matching HLTV map for the current game
   const currentHLTVMap = useMemo(() => {
@@ -345,13 +364,17 @@ export default function MatchDetailModal({
       handleIndicatorStyle={styles.modalHandle}
     >
       <BottomSheetScrollView contentContainerStyle={styles.modalContent}>
-        {/* --- CLOSE BUTTON --- */}
-        <TouchableOpacity
-          style={styles.closeButton}
-          onPress={() => bottomSheetModalRef.current?.close()}
-        >
-          <Text style={styles.closeButtonText}>✕</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.refreshButton} onPress={refreshHLTV}>
+            <Text style={styles.refreshButtonText}>↻</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => bottomSheetModalRef.current?.close()}
+          >
+            <Text style={styles.closeButtonText}>✕</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* --- HEADER: Game Info --- */}
         <Text style={styles.gameStatusText}>
@@ -368,9 +391,11 @@ export default function MatchDetailModal({
           <View style={styles.teamContainer}>
             <View style={styles.scoreWithRound}>
               <Text style={styles.scoreText}>{scoreA}</Text>
-              <Text style={styles.roundScoreText}>
-                {currentMapScores.scoreA}
-              </Text>
+              {matchData?.status === "running" && (
+                <Text style={styles.roundScoreText}>
+                  {currentMapScores.scoreA}
+                </Text>
+              )}
             </View>
             {teamALogo ? (
               <Image source={{ uri: teamALogo }} style={styles.teamLogo} />
@@ -395,38 +420,49 @@ export default function MatchDetailModal({
             {/* Displays "MAP 1", "MAP 2", etc. */}
             <Text style={styles.vsText}>{mapLabel}</Text>
 
+            {/* Round countdown timer */}
+            {matchData?.status === "running" && HLTVData?.timeRemaining !== undefined ? (
+              <Text style={styles.countdownText}>
+                {Math.floor(HLTVData.timeRemaining / 60)}:{String(HLTVData.timeRemaining % 60).padStart(2, "0")}
+              </Text>
+            ) : matchData?.status === "running" && HLTVData?.hasScorebot ? (
+              <Text style={styles.countdownText}>Round over</Text>
+            ) : null}
+
             {/* Live round ticker — colored dots showing each round's winner */}
-            {roundIndicators.length > 0 ? (
-              <View style={styles.roundTicker}>
-                {roundIndicators.map((r, idx) => (
-                  <React.Fragment key={r.key}>
-                    {/* Half separator for HLTV-derived data */}
-                    {idx > 0 &&
-                      r.half !== undefined &&
-                      r.half !== roundIndicators[idx - 1]?.half && (
-                        <View style={styles.halfSeparator} />
-                      )}
-                    <View
-                      style={[
-                        styles.roundDot,
-                        {
-                          backgroundColor: r.isTeamA
-                            ? teamAColor
-                            : r.isTeamB
-                              ? teamBColor
-                              : "rgba(255,255,255,0.15)",
-                        },
-                      ]}
-                    />
-                  </React.Fragment>
-                ))}
-              </View>
-            ) : !HLTVData && !currentGame?.rounds ? (
-              <View style={styles.roundTicker}>
-                <Text style={styles.placeholderText}>
-                  Detailed stats are not available for this match
-                </Text>
-              </View>
+            {matchData?.status === "running" ? (
+              roundIndicators.length > 0 ? (
+                <View style={styles.roundTicker}>
+                  {roundIndicators.map((r, idx) => (
+                    <React.Fragment key={r.key}>
+                      {/* Half separator for HLTV-derived data */}
+                      {idx > 0 &&
+                        r.half !== undefined &&
+                        r.half !== roundIndicators[idx - 1]?.half && (
+                          <View style={styles.halfSeparator} />
+                        )}
+                      <View
+                        style={[
+                          styles.roundDot,
+                          {
+                            backgroundColor: r.isTeamA
+                              ? teamAColor
+                              : r.isTeamB
+                                ? teamBColor
+                                : "rgba(255,255,255,0.15)",
+                          },
+                        ]}
+                      />
+                    </React.Fragment>
+                  ))}
+                </View>
+              ) : !HLTVData && !currentGame?.rounds ? (
+                <View style={styles.roundTicker}>
+                  <Text style={styles.placeholderText}>
+                    Detailed stats are not available for this match
+                  </Text>
+                </View>
+              ) : null
             ) : null}
 
             <Text style={styles.matchTypeText}>
@@ -439,9 +475,11 @@ export default function MatchDetailModal({
           <View style={styles.teamContainer}>
             <View style={styles.scoreWithRound}>
               <Text style={styles.scoreText}>{scoreB}</Text>
-              <Text style={styles.roundScoreText}>
-                {currentMapScores.scoreB}
-              </Text>
+              {matchData?.status === "running" && (
+                <Text style={styles.roundScoreText}>
+                  {currentMapScores.scoreB}
+                </Text>
+              )}
             </View>
             {teamBLogo ? (
               <Image source={{ uri: teamBLogo }} style={styles.teamLogo} />
@@ -488,7 +526,7 @@ export default function MatchDetailModal({
 
         {/* --- CONDITIONALLY RENDERED SEGMENT TABS CONTENT --- */}
         {activeTab === "Summary" && (
-          <Summary match={matchData} HLTVData={HLTVData} />
+          <Summary match={matchData} HLTVData={HLTVData} teamAColor={teamAColor} teamBColor={teamBColor} />
         )}
 
         {activeTab === "Play-By-Play" && (
@@ -501,11 +539,27 @@ export default function MatchDetailModal({
 }
 
 const styles = StyleSheet.create({
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+    paddingRight: 16,
+    marginBottom: 8,
+    width: "100%",
+  },
+  refreshButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  refreshButtonText: {
+    color: "#FFF",
+    fontSize: 18,
+  },
   closeButton: {
-    position: "absolute",
-    top: 0,
-    right: 16,
-    zIndex: 10,
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -534,7 +588,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     position: "relative",
+    width: "100%",
   },
+
   gradientContainer: {
     position: "absolute",
     top: 0,
@@ -643,6 +699,13 @@ const styles = StyleSheet.create({
     alignItems: "baseline",
     gap: 4,
   },
+  countdownText: {
+    color: "#FF453A",
+    fontSize: 13,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
+    marginVertical: 2,
+  },
   matchTypeText: {
     color: "#FFFFFF",
     fontSize: 10,
@@ -667,18 +730,22 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.2)",
     borderRadius: 1,
   },
+
   tabContainer: {
     flexDirection: "row",
-    width: "100%",
     justifyContent: "center",
+    alignItems: "center",
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255,255,255,0.12)",
     marginBottom: 12,
-    paddingHorizontal: 4,
+    gap: 24,
+    width: "100%",
+    marginHorizontal: -16, // cancel out parent padding so border goes edge to edge
+    paddingHorizontal: 16, // re-add it so tabs themselves have breathing room
   },
+
   tabButton: {
     paddingVertical: 10,
-    marginRight: 24,
   },
   activeTabButton: {
     borderBottomWidth: 2,

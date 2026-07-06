@@ -102,7 +102,7 @@ export default function TeamTabScreen() {
 
   return (
     <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
+      style={styles.scrollView}
       contentInset={insets}
       contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
       onScroll={({ nativeEvent }) => {
@@ -190,16 +190,19 @@ const styles = StyleSheet.create({
   contentContainer: {
     flexDirection: "row",
     justifyContent: "center",
+    backgroundColor: "transparent",
   },
   container: {
     maxWidth: MaxContentWidth,
     flexGrow: 1,
     paddingHorizontal: Spacing.four,
+    backgroundColor: "transparent",
   },
   titleContainer: {
     gap: Spacing.three,
     alignItems: "center",
     paddingVertical: Spacing.six,
+    backgroundColor: "transparent",
   },
   centerText: {
     textAlign: "center",
@@ -219,6 +222,7 @@ const styles = StyleSheet.create({
   sectionsWrapper: {
     gap: Spacing.five,
     paddingTop: Spacing.three,
+    backgroundColor: "transparent",
   },
   collapsibleContent: {
     alignItems: "center",

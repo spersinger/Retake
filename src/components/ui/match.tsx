@@ -1,8 +1,6 @@
 import { Image as ExpoImage } from "expo-image";
 import { Pressable, StyleSheet, View } from "react-native";
 import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
-import { useTheme } from "@/hooks/use-theme";
 import { Spacing } from "@/constants/theme";
 import { useMatchDetails } from "@/hooks/use-match-details";
 
@@ -25,8 +23,15 @@ interface MatchProps {
   match: MatchData;
 }
 
+const getLeagueColor = (name: string) => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return `hsl(${Math.abs(hash) % 360}, 55%, 35%)`;
+};
+
 export const Match = ({ match }: MatchProps) => {
-  const theme = useTheme();
   const leagueLogoUri = match.league?.image_url;
 
   const { openMatchDetails, matchId, closeMatchDetails } = useMatchDetails();
@@ -49,9 +54,7 @@ export const Match = ({ match }: MatchProps) => {
       onPress={handleGamePress}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
-      <ThemedView
-        style={[styles.row, { backgroundColor: theme.backgroundElement }]}
-      >
+      <View style={styles.row}>
         {/* League Logo / Fallback */}
         {leagueLogoUri ? (
           <ExpoImage
@@ -61,7 +64,14 @@ export const Match = ({ match }: MatchProps) => {
           />
         ) : (
           <View
-            style={[styles.logoFallback, { backgroundColor: theme.background }]}
+            style={[
+              styles.logoFallback,
+              {
+                backgroundColor: getLeagueColor(
+                  match.league?.name ?? "VS",
+                ),
+              },
+            ]}
           >
             <ThemedText style={styles.logoFallbackText}>
               {match.league?.name.slice(0, 2) ?? "VS"}
@@ -70,36 +80,36 @@ export const Match = ({ match }: MatchProps) => {
         )}
 
         {/* Match Details */}
-        <ThemedView style={styles.info}>
+        <View style={styles.info}>
           <ThemedText style={styles.name} numberOfLines={1}>
             {match.name}
           </ThemedText>
 
-          <ThemedView style={styles.metaRow}>
+          <View style={styles.metaRow}>
             {match.league?.name ? (
-              <ThemedText themeColor="textSecondary" style={styles.meta}>
+              <ThemedText style={styles.meta} themeColor="textSecondary">
                 {match.league.name}
               </ThemedText>
             ) : null}
 
             {match.serie?.name ? (
-              <ThemedText themeColor="textSecondary" style={styles.meta}>
+              <ThemedText style={styles.meta} themeColor="textSecondary">
                 • {match.serie.name}
               </ThemedText>
             ) : null}
-          </ThemedView>
+          </View>
 
           {isLive ? (
-            <ThemedView style={styles.liveBadge}>
+            <View style={styles.liveBadge}>
               <ThemedText style={styles.liveText}>• LIVE</ThemedText>
-            </ThemedView>
+            </View>
           ) : (
             <ThemedText themeColor="textSecondary" style={styles.timeText}>
               {formattedTime}
             </ThemedText>
           )}
-        </ThemedView>
-      </ThemedView>
+        </View>
+      </View>
     </Pressable>
   );
 };
@@ -110,6 +120,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: Spacing.three,
     gap: Spacing.three,
+    alignSelf: "stretch",
   },
   pressed: {
     opacity: 0.6,

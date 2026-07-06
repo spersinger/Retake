@@ -7552,7 +7552,7 @@
     "logo": "https://cdn-api.pandascore.co/images/team/image/132125/game_pub.png"
   },
   "GamerLegion": {
-    "color": "hsl(0, 75%, 50%)",
+    "color": "hsl(360 0% 100%)",
     "logo": "https://cdn-api.pandascore.co/images/team/image/125847/591px_gamer_legion_2026_allmode.png"
   },
   "GamerLegion Academy": {
@@ -9128,7 +9128,7 @@
     "logo": "https://cdn-api.pandascore.co/images/team/image/138101/192px_inner_circle_esports_lightmode.png"
   },
   "Inner Circle Esports": {
-    "color": "hsl(83, 75%, 50%)",
+    "color": "hsl(0, 75%, 50%)",
     "logo": "https://cdn-api.pandascore.co/images/team/image/136497/192px_inner_circle_esports_lightmode.png"
   },
   "Inner Circle Prospect": {
