@@ -1,8 +1,9 @@
 import { Image as ExpoImage } from "expo-image";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View, TouchableOpacity, Text } from "react-native";
 import { ThemedText } from "@/components/themed-text";
 import { Spacing } from "@/constants/theme";
 import { useMatchDetails } from "@/hooks/use-match-details";
+import { useLiveActivity } from "@/hooks/use-live-activity";
 
 // Relying on a clean structure for the match data from Pandascore
 export interface MatchData {
@@ -36,10 +37,19 @@ export const Match = ({ match }: MatchProps) => {
 
   const { openMatchDetails, matchId, closeMatchDetails } = useMatchDetails();
 
-  const isLive = match.status === "running";
+  const isLive = match.status === "running" || __DEV__;
   const handleGamePress = () => {
     openMatchDetails(match.id);
   };
+
+  const {
+    activeMatchId,
+    isStarting,
+    startActivity,
+    stopActivity,
+  } = useLiveActivity();
+
+  const isLiveActivityActive = activeMatchId === match.id;
 
   // Formats the UTC timestamp into local hours/dates cleanly
   const formattedTime = new Date(match.begin_at).toLocaleString([], {
@@ -107,6 +117,24 @@ export const Match = ({ match }: MatchProps) => {
             <ThemedText themeColor="textSecondary" style={styles.timeText}>
               {formattedTime}
             </ThemedText>
+          )}
+          {__DEV__ && (
+            <TouchableOpacity
+              style={[
+                styles.debugLIVEButton,
+                isLiveActivityActive && styles.debugLIVEButtonActive,
+              ]}
+              onPress={() =>
+                isLiveActivityActive
+                  ? stopActivity()
+                  : startActivity(match.id)
+              }
+              disabled={isStarting}
+            >
+              <Text style={styles.debugLIVEButtonText}>
+                {isStarting ? "..." : isLiveActivityActive ? "● LA" : "○ LA"}
+              </Text>
+            </TouchableOpacity>
           )}
         </View>
       </View>
@@ -178,6 +206,22 @@ const styles = StyleSheet.create({
   liveText: {
     color: "#fff",
     fontSize: 11,
+    fontWeight: "700",
+  },
+  debugLIVEButton: {
+    alignSelf: "flex-start",
+    marginTop: Spacing.half,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  debugLIVEButtonActive: {
+    backgroundColor: "rgba(255,70,60,0.3)",
+  },
+  debugLIVEButtonText: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 10,
     fontWeight: "700",
   },
 });

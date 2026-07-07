@@ -20,6 +20,7 @@ import { useScrollViewOffset } from "react-native-reanimated";
 import { Match } from "@/api/hltv-types";
 import { formatMapName } from "@/utils/maps";
 import { useMatchDetails } from "@/hooks/use-match-details";
+import { useLiveActivity } from "@/hooks/use-live-activity";
 
 const { width, height: screenHeight } = Dimensions.get("window");
 
@@ -125,6 +126,14 @@ export default function MatchDetailModal({
   >("Summary");
 
   const { refreshHLTV } = useMatchDetails();
+  const {
+    activeMatchId,
+    isStarting,
+    startActivity,
+    stopActivity,
+  } = useLiveActivity();
+
+  const isLiveActivityActive = activeMatchId === matchData?.id;
 
   const teamA = matchData?.opponents?.[0]?.opponent || {
     id: -1,
@@ -368,6 +377,29 @@ export default function MatchDetailModal({
           <TouchableOpacity style={styles.refreshButton} onPress={refreshHLTV}>
             <Text style={styles.refreshButtonText}>↻</Text>
           </TouchableOpacity>
+          {(matchData?.status === "running" || __DEV__) && (
+            <TouchableOpacity
+              style={[
+                styles.liveActivityButton,
+                isLiveActivityActive && styles.liveActivityButtonActive,
+              ]}
+              onPress={() =>
+                isLiveActivityActive
+                  ? stopActivity()
+                  : startActivity(matchData!.id)
+              }
+              disabled={isStarting}
+            >
+              <Text
+                style={[
+                  styles.liveActivityButtonText,
+                  isLiveActivityActive && styles.liveActivityButtonTextActive,
+                ]}
+              >
+                {isStarting ? "..." : isLiveActivityActive ? "●" : "○"}
+              </Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={styles.closeButton}
             onPress={() => bottomSheetModalRef.current?.close()}
@@ -571,6 +603,25 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontSize: 16,
     fontWeight: "600",
+  },
+  liveActivityButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  liveActivityButtonActive: {
+    backgroundColor: "rgba(255,70,60,0.3)",
+  },
+  liveActivityButtonText: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 16,
+  },
+  liveActivityButtonTextActive: {
+    color: "#FF453A",
+    fontSize: 18,
   },
   modalBackground: {
     backgroundColor: "#161210",

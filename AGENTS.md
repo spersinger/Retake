@@ -1,53 +1,65 @@
 # Anchored Summary
 
 ## Goal
-Make the bottom sheet modal only open to the top of the visible screen, respecting safe area insets so the fully expanded top sits below the notch.
+Add a LiveActivityWidget extension target to the Expo iOS Xcode project without corrupting `project.pbxproj`, so Live Activities work on device.
 
-## Constraints & Preferences
-- The popup should be fully open but stop exactly at the top safe area inset (below the notch).
-- Use safe area insets from `react-native-safe-area-context`.
-- App is forced to dark mode always.
+## Root Cause & Critical Context
+The `xcode` npm package's **writer does NOT auto-quote values** in OpenStep plist output. Any value requiring quotes in the `.pbxproj` file must be stored in the hash **with literal double quotes already embedded**. Examples:
+- `sourceTree` → `'"<group>"'` (special chars `< >`)
+- `productType` → `'"com.apple.product-type.app-extension"'` (dots)
+- `PRODUCT_BUNDLE_PACKAGE_TYPE` → `'"XPC!"'` (exclamation)
+- `TARGETED_DEVICE_FAMILY` → `'"1,2"'` (comma separator)
+- `INFOPLIST_KEY_CFBundleDisplayName` → `'"Retake Live Activities"'` (spaces)
+- Empty string → `'""'`
+- Simple strings (no special chars) → no quotes, e.g. `'RetakeWidgetExtension'`, `'YES'`, `'17.0'`
+
+The parser (OpenStep) strips outer quotes on read; values like `<group>` are stored without quotes in the JS hash. The `pbxFileReferenceObj` helper auto-quotes `name` and `path` but NOT `sourceTree`, so callers must pre-quote `sourceTree`.
+
+The `omitEmptyValues: true` option must be passed to `writeSync()` to prevent `undefined` properties (e.g. `fileEncoding`, `explicitFileType`, `includeInIndex`) from being written as literal `undefined` text.
 
 ## Progress
 ### Done
-- Replaced `NativeTabs` with a hidden native tab bar + absolutely positioned custom glass overlay (logo, pill buttons, safe area padding).
-- Forced dark mode: `use-color-scheme.ts` always returns `"dark"`, `_layout.tsx` uses `DarkTheme` unconditionally.
-- Reverted two experimental fixes to `themed-view.tsx` and `match.tsx` that didn't help.
-- Added `contentStyle={{ backgroundColor: "transparent" }}` to each `NativeTabs.Trigger` in `app-tabs.tsx` so the root `LinearGradient` shows through on iOS (matching web behavior).
-- Reverted broken snap point changes in `MatchDetailsModal.tsx` back to original `["65%", "100%"]`.
-- Added Live Activity widget: `ios/LiveActivityWidget/LiveActivityWidgetLiveActivity.swift` rewritten with `MatchActivityAttributes` (team names, scores, map, status) and Lock Screen + Dynamic Island UI.
-- Added expo-notifications: installed package, configured plugin in app.json, notification handler in `_layout.tsx`.
-- Created `src/api/notifications.ts`: `requestLiveActivity()` calls `server/notif/request` with match ID and push token.
-- Created `src/hooks/use-live-activity.tsx`: manages push token registration, provides `startActivity(matchId)` and `stopActivity()` that call the server endpoint.
-- Added Live Activity toggle button in `MatchDetailsModal.tsx` header (only shown for running matches).
+- **Root cause of `xcode` package corrupting files identified**: values needing quotes (see above) must be embedded with literal double quotes in the hash.
+- **`addBuildPhase` high-level API works for all build phase types** (Sources, Frameworks, Resources, CopyFiles) when called with correct arguments. Uses internal `pbxCopyFilesBuildPhaseObj` which properly quotes `name`, `dstPath`, and resolves `dstSubfolderSpec`.
+- **`addToPbxFileReferenceSection` works** when `sourceTree` is pre-quoted.
+- **`addToPbxBuildFileSection` works** as-is.
+- Created `scripts/add-widget.js` that successfully adds:
+  - PBXFileReference entries (4 widget source files + 1 product)
+  - PBXBuildFile entries (2 Swift source files)
+  - PBXSourcesBuildPhase, PBXFrameworksBuildPhase, PBXResourcesBuildPhase (via `addBuildPhase`)
+  - XCBuildConfiguration entries (Debug + Release for widget target)
+  - XCConfigurationList for widget target
+  - PBXNativeTarget for widget
+  - PBXTargetDependency on main target
+  - PBXCopyFilesBuildPhase (Embed App Extensions) on main target (via `addBuildPhase` with `'app_extension'`)
+  - TargetAttributes entry for widget
+  - Project target list and group references
+- Project validated: `xcodebuild -list` shows both `Retake` and `RetakeWidgetExtension` targets with correct schemes.
+- Round-trip test passes (re-parse + write-back produces valid output).
 
 ### In Progress
 - (none)
 
 ### Blocked
-- (none)
+- Building the widget requires a full `pod install` / clean build to resolve Pods module maps (pre-existing issue unrelated to widget changes).
 
 ## Key Decisions
-- Dark mode is forced by overriding `use-color-scheme.ts` to return `"dark"` and hardcoding `DarkTheme` in `_layout.tsx`.
-- The tab bar uses `NativeTabs hidden` for routing + safe areas, with a separate `CustomTabBarOverlay` absolutely positioned at the bottom.
-- `expo-router/ui`'s `Tabs` and `expo-router`'s `Tabs` with `tabBar` prop both caused layout or hook errors on iOS, so the hybrid `NativeTabs` + overlay approach was chosen.
-- Gradient background lives in `_layout.tsx` (works for web). On iOS, `NativeTabs.Trigger contentStyle` with transparent bg lets it show through.
-- Bottom sheet snap points use `["65%", "100%"]` - the safe-area-constrained approach didn't work.
-- Live Activity uses push-to-start: app sends match ID + Expo push token to `server/notif/request`, server sends APNs push-to-start/update/end notifications to the Live Activity widget.
-- `MatchActivityAttributes` define matched data contract: matchId (static), ContentState with team names/scores/map/status/round tick.
+- Use high-level API (`addBuildPhase`, `addToPbxFileReferenceSection`, `addToPbxBuildFileSection`) where available; fall back to direct hash manipulation for targets, configs, dependencies.
+- Always create the PBXNativeTarget entry BEFORE calling `addBuildPhase` for its phases, since `addBuildPhase` pushes to the target's `buildPhases` array.
+- Use `writeSync({omitEmptyValues: true})` to avoid writing `undefined` for optional properties.
+- Backup clean `.bak5` is the pristine pre-widget baseline (29365 bytes).
+- PBXCopyFilesBuildPhase is added to the main (app) target, not the widget target.
 
 ## Next Steps
-- Server must handle `POST /server/notif/request` with `{ id: number, pushToken?: string, action: "start" | "stop" }`. It should use the push token to send APNs Live Activity push notifications with `content-state` matching `MatchActivityAttributes.ContentState`.
-- After rebuilding the dev client, the Live Activity button will appear on live match detail modals.
+1. Verify the widget builds in Xcode (open project with `xed ios` and build).
+2. Re-enable `expo-dev-client` plugin in `app.json` if needed.
+3. Verify the Live Activity toggle appears in `MatchDetailsModal.tsx`.
+4. Server must handle `POST /server/notif/request` for push-to-start Live Activities.
 
 ## Relevant Files
-- `src/components/ui/MatchDetailsModal.tsx`: bottom sheet modal (reverted to `["65%", "100%"]`), now has Live Activity toggle button.
-- `src/hooks/use-color-scheme.ts`: always returns `"dark"`.
-- `src/app/_layout.tsx`: hardcodes `DarkTheme` + root `LinearGradient` + notification handler.
-- `src/components/app-tabs.tsx`: NativeTabs + CustomTabBarOverlay approach; triggers have `contentStyle={{ backgroundColor: "transparent" }}`.
-- `src/components/app-tabs.web.tsx`: web tab bar (uses `expo-router/ui` Tabs, no gradient needed).
-- `src/hooks/use-match-details.tsx`: renders `MatchDetailModal` and owns the `BottomSheetModal` ref.
-- `src/constants/theme.ts`: contains `BottomTabInset` (50 iOS, 80 Android).
-- `ios/LiveActivityWidget/LiveActivityWidgetLiveActivity.swift`: `MatchActivityAttributes` + Lock Screen and Dynamic Island UI for CS:GO matches.
-- `src/api/notifications.ts`: calls `server/notif/request` to start/stop Live Activity for a match.
-- `src/hooks/use-live-activity.tsx`: hook for push token and Live Activity start/stop.
+- `scripts/add-widget.js` — Node.js script that adds the widget target to the Xcode project.
+- `ios/Retake.xcodeproj/project.pbxproj` — main project file (now includes widget target).
+- `ios/Retake.xcodeproj/project.pbxproj.bak5` — clean baseline pre-widget.
+- `ios/LiveActivityWidget/` — widget extension source files (`.swift`, `Info.plist`, `.entitlements`).
+- `node_modules/xcode/lib/pbxProject.js` — contains `addBuildPhase`, `addToPbxFileReferenceSection`, etc.
+- `node_modules/xcode/lib/pbxWriter.js` — writer with `omitEmptyValues` option; no auto-quoting.

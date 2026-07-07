@@ -6,21 +6,42 @@ const RETAKE_SERVER_BASE_URL =
 export interface StartLiveActivityRequest {
   id: number;
   pushToken?: string;
-  action: "start" | "stop";
+  action: "start" | "stop" | "update";
+  contentState?: {
+    team1Score: number;
+    team2Score: number;
+    currentRound: number;
+    totalRounds: number;
+    status: string;
+    mapName: string;
+  };
 }
+
+// For testing purposes - provides a mock push token when a real one is not needed
+// Format matches ExpoPushToken[<alphanumerics_underscore_hyphen>]
+const getMockPushToken = (): string => {
+  // Use a consistent mock value for testing
+  return "ExponentPushToken[test-mock-token-12345]";
+};
 
 export const requestLiveActivity = async (
   matchId: number,
   pushToken?: string,
-  action: "start" | "stop" = "start",
+  action: "start" | "stop" | "update" = "start",
+  contentState?: StartLiveActivityRequest["contentState"],
 ) => {
   try {
     const body: StartLiveActivityRequest = {
       id: matchId,
       action,
     };
-    if (pushToken) {
-      body.pushToken = pushToken;
+    if (!pushToken) {
+      pushToken = getMockPushToken();
+      console.log("Using mock push token:", pushToken);
+    }
+    body.pushToken = pushToken;
+    if (contentState) {
+      body.contentState = contentState;
     }
 
     const response = await axios.post(

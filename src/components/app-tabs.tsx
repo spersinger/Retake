@@ -50,7 +50,7 @@ function CustomTabBarOverlay() {
             style={styles.brandLogo}
           />
           <ThemedText type="smallBold" style={styles.brandText}>
-            etake
+            Retake
           </ThemedText>
         </View>
 

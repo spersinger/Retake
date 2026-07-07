@@ -13,8 +13,7 @@
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         },
-        "ITSAppUsesNonExemptEncryption": false,
-        "NSSupportsLiveActivities": true
+        "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.spersin00.cslivemobile"
     },
@@ -52,12 +51,7 @@
           "color": "#208AEF"
         }
       ],
-      [
-        "expo-widgets",
-        {
-          "enablePushNotifications": true
-        }
-      ]
+      "./plugins/withLiveActivityWidget"
     ],
     "experiments": {
       "typedRoutes": true,
