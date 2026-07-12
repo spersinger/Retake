@@ -43,51 +43,41 @@ export function useLiveActivity() {
     };
   }, []);
 
-  const startActivity = useCallback(async (matchId: number) => {
-    setIsStarting(true);
-
-    // Start the Live Activity locally, regardless of backend/push result
-    try {
-      const instance = MatchActivity.start({
-        team1: "Team 1",
-        team2: "Team 2",
-        team1Score: 0,
-        team2Score: 0,
-        round: 1,
-        totalRounds: 24,
-        status: "live",
-        map: "Inferno",
-      });
-      activityRef.current = instance;
-      setActiveMatchId(matchId);
-
-      // Best-effort: grab the per-activity push token for remote updates later
-      instance
-        .getPushToken()
-        .then((pushToken) => {
-          if (pushToken) console.log("Live Activity push token:", pushToken);
-        })
-        .catch((e) =>
-          console.log("Failed to get Live Activity push token:", e),
+  const startActivity = useCallback(
+    async (matchId: number, props: MatchActivityProps) => {
+      setIsStarting(true);
+      try {
+        // LiveActivityFactory.start(props, url?) takes the content-state
+        // object FIRST. The system generates the activity ID; we never pass
+        // matchId here (it was previously passed as `props`, discarding the
+        // real props and sending the id string as the content state).
+        const instance = MatchActivity.start(props);
+        activityRef.current = instance;
+        setActiveMatchId(matchId);
+      } catch (e) {
+        console.log("Live Activity start failed:", e);
+      }
+      try {
+        await requestLiveActivity(
+          matchId,
+          pushTokenRef.current ?? undefined,
+          "start",
+          {
+            team1Score: props.team1Score,
+            team2Score: props.team2Score,
+            currentRound: props.roundScoreA,
+            totalRounds: props.roundScoreA + props.roundScoreB,
+            status: "running",
+            mapName: props.mapLabel,
+          },
         );
-    } catch (e) {
-      console.log("Live Activity start failed:", e);
-    }
-
-    // Separately, best-effort notify the backend (for push-to-update later) — failure here shouldn't block anything
-    try {
-      await requestLiveActivity(
-        matchId,
-        pushTokenRef.current ?? undefined,
-        "start",
-      );
-    } catch (e) {
-      console.log("Backend push registration failed (non-fatal):", e);
-    }
-
-    setIsStarting(false);
-  }, []);
-
+      } catch (e) {
+        console.log("Backend push registration failed (non-fatal):", e);
+      }
+      setIsStarting(false);
+    },
+    [],
+  );
   const stopActivity = useCallback(async () => {
     const matchId = activeMatchId;
     if (!matchId) return;

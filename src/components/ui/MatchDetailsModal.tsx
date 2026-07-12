@@ -17,10 +17,13 @@ import { Summary } from "./MatchDetailsModal/Summary";
 import { PlayByPlay } from "./MatchDetailsModal/PlayByPlay";
 import { StreamView } from "./MatchDetailsModal/StreamView";
 import { useScrollViewOffset } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Match } from "@/api/hltv-types";
 import { formatMapName } from "@/utils/maps";
 import { useMatchDetails } from "@/hooks/use-match-details";
 import { useLiveActivity } from "@/hooks/use-live-activity";
+import { cacheTeamLogo } from "@/utils/cache-team-logo";
+import { useBuildAction } from "expo-router/build/react-navigation/native/useLinkBuilder";
 
 const { width, height: screenHeight } = Dimensions.get("window");
 
@@ -126,14 +129,11 @@ export default function MatchDetailModal({
   >("Summary");
 
   const { refreshHLTV } = useMatchDetails();
-  const {
-    activeMatchId,
-    isStarting,
-    startActivity,
-    stopActivity,
-  } = useLiveActivity();
+  const { activeMatchId, isStarting, startActivity, stopActivity } =
+    useLiveActivity();
 
   const isLiveActivityActive = activeMatchId === matchData?.id;
+  const insets = useSafeAreaInsets();
 
   const teamA = matchData?.opponents?.[0]?.opponent || {
     id: -1,
@@ -246,7 +246,12 @@ export default function MatchDetailModal({
     (props: { style?: any }) => {
       return (
         <View style={[props.style, styles.modalBackground]}>
-          <View style={[styles.gradientContainer, { transform: [{ rotate: `${tiltAngle}deg` }, { scale: 1.2 }] }]}>          
+          <View
+            style={[
+              styles.gradientContainer,
+              { transform: [{ rotate: `${tiltAngle}deg` }, { scale: 1.2 }] },
+            ]}
+          >
             {gradientSegments.map((seg, i) => (
               <View key={i} style={seg} />
             ))}
@@ -281,8 +286,7 @@ export default function MatchDetailModal({
 
   // 4. Extract map name/number info
   const mapLabel = useMemo(() => {
-    if (currentHLTVMap?.name)
-      return formatMapName(currentHLTVMap.name).toUpperCase();
+    if (currentHLTVMap?.name) return formatMapName(currentHLTVMap.name);
     if (!currentGame) return "MAP 1";
     return `MAP ${currentGame.position}`;
   }, [currentGame, currentHLTVMap]);
@@ -367,7 +371,8 @@ export default function MatchDetailModal({
   return (
     <BottomSheetModal
       ref={bottomSheetModalRef}
-      snapPoints={["65%", "100%"]}
+      topInset={insets.top}
+      snapPoints={[screenHeight * 0.65, "100%"]}
       index={0}
       backgroundComponent={Background}
       handleIndicatorStyle={styles.modalHandle}
@@ -383,12 +388,46 @@ export default function MatchDetailModal({
                 styles.liveActivityButton,
                 isLiveActivityActive && styles.liveActivityButtonActive,
               ]}
-              onPress={() =>
-                isLiveActivityActive
-                  ? stopActivity()
-                  : startActivity(matchData!.id)
-              }
-              disabled={isStarting}
+              onPress={async () => {
+                if (isLiveActivityActive) {
+                  stopActivity();
+                  return;
+                }
+                const [team1LogoPath, team2LogoPath] = await Promise.all([
+                  cacheTeamLogo(teamALogo ? teamALogo : ""),
+                  cacheTeamLogo(teamBLogo ? teamBLogo : ""),
+                ]);
+                console.log(team1LogoPath);
+                console.log(team2LogoPath);
+                startActivity(matchData!.id, {
+                  league: matchData?.league?.name || "Counter Strike",
+                  team1: teamA.name,
+                  team2: teamB.name,
+                  team1Score: scoreA,
+                  team2Score: scoreB,
+                  team1LogoPath,
+                  team2LogoPath,
+                  team1Color: teamAColor,
+                  team2Color: teamBColor,
+                  bestOf: matchData?.number_of_games,
+                  mapLabel,
+                  status:
+                    matchData?.status
+                      .toLowerCase()
+                      .replace(/_/g, " ")
+                      .replace(/\b\w/g, (c) => c.toUpperCase()) || "Unknown",
+
+                  roundScoreA: currentMapScores.scoreA,
+                  roundScoreB: currentMapScores.scoreB,
+                  matchTypeLabel:
+                    matchData?.match_type?.replace("_", " ").toUpperCase() ??
+                    "",
+                  detailLine:
+                    HLTVData?.timeRemaining !== undefined
+                      ? `${Math.floor(HLTVData.timeRemaining / 60)}:${String(HLTVData.timeRemaining % 60).padStart(2, "0")} remaining`
+                      : undefined,
+                });
+              }}
             >
               <Text
                 style={[
@@ -453,9 +492,11 @@ export default function MatchDetailModal({
             <Text style={styles.vsText}>{mapLabel}</Text>
 
             {/* Round countdown timer */}
-            {matchData?.status === "running" && HLTVData?.timeRemaining !== undefined ? (
+            {matchData?.status === "running" &&
+            HLTVData?.timeRemaining !== undefined ? (
               <Text style={styles.countdownText}>
-                {Math.floor(HLTVData.timeRemaining / 60)}:{String(HLTVData.timeRemaining % 60).padStart(2, "0")}
+                {Math.floor(HLTVData.timeRemaining / 60)}:
+                {String(HLTVData.timeRemaining % 60).padStart(2, "0")}
               </Text>
             ) : matchData?.status === "running" && HLTVData?.hasScorebot ? (
               <Text style={styles.countdownText}>Round over</Text>
@@ -558,7 +599,12 @@ export default function MatchDetailModal({
 
         {/* --- CONDITIONALLY RENDERED SEGMENT TABS CONTENT --- */}
         {activeTab === "Summary" && (
-          <Summary match={matchData} HLTVData={HLTVData} teamAColor={teamAColor} teamBColor={teamBColor} />
+          <Summary
+            match={matchData}
+            HLTVData={HLTVData}
+            teamAColor={teamAColor}
+            teamBColor={teamBColor}
+          />
         )}
 
         {activeTab === "Play-By-Play" && (
