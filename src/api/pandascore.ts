@@ -177,8 +177,6 @@ export const getGames = async ({
       params["filter[opponent_id]"] = Array.isArray(team_ids)
         ? team_ids.join(",")
         : team_ids.toString();
-
-      params["filter[winner_type]"] = "Team";
     }
 
     // 3. Make the API request

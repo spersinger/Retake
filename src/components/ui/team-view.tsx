@@ -119,6 +119,70 @@ export const Team = ({ team, onPress }: TeamProps) => {
   );
 };
 
+export const FavoriteCard = ({ team, onPress }: TeamProps) => {
+  const theme = useTheme();
+  const logoUri = team.dark_mode_image_url ?? team.image_url;
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const [isAnimating, setIsAnimating] = useState(false);
+  const favorite = isFavorite(team.id);
+
+  const handleFavoritePress = () => {
+    toggleFavorite(team);
+    if (!favorite) {
+      setIsAnimating(true);
+    }
+  };
+
+  return (
+    <Pressable
+      onPress={() => onPress?.(team)}
+      style={({ pressed }) => [styles.favCard, pressed && styles.pressed]}
+    >
+      <View style={styles.favLogoWrap}>
+        {logoUri ? (
+          <Image
+            source={{ uri: logoUri }}
+            style={styles.favLogo}
+            contentFit="contain"
+          />
+        ) : (
+          <View
+            style={[
+              styles.favLogoFallback,
+              { backgroundColor: theme.backgroundElement },
+            ]}
+          >
+            <ThemedText style={styles.favLogoFallbackText}>
+              {team.acronym?.slice(0, 2) ?? team.name.slice(0, 2)}
+            </ThemedText>
+          </View>
+        )}
+        <Pressable onPress={handleFavoritePress} style={styles.favHeartBadge}>
+          {!isAnimating ? (
+            <AntDesign
+              name="heart"
+              size={14}
+              color={favorite ? "#ff3144" : "#ffffff"}
+            />
+          ) : (
+            <LottieView
+              source={require("../../lottie/heart-anim.json")}
+              loop={false}
+              autoPlay
+              style={styles.favHeartLottie}
+              onAnimationFinish={() => setIsAnimating(false)}
+            />
+          )}
+        </Pressable>
+      </View>
+      <ThemedText numberOfLines={1} style={styles.favName}>
+        {team.name}
+      </ThemedText>
+    </Pressable>
+  );
+};
+
+
 const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
@@ -167,5 +231,55 @@ const styles = StyleSheet.create({
     height: 64,
     alignItems: "center",
     justifyContent: "center",
+  },
+  favCard: {
+    width: 96,
+    alignItems: "center",
+    gap: Spacing.two,
+    padding: Spacing.two,
+  },
+  favLogoWrap: {
+    position: "relative",
+    width: 64,
+    height: 64,
+  },
+  favLogo: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+  },
+  favLogoFallback: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  favLogoFallbackText: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  favHeartBadge: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#1b2440",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#0a0e1f",
+  },
+  favHeartLottie: {
+    width: 26,
+    height: 26,
+  },
+  favName: {
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+    maxWidth: 96,
   },
 });

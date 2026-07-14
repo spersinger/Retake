@@ -45,7 +45,6 @@ const MatchActivity = (
 ) => {
   "widget";
 
-  // Moving the TeamBlock logic inline so the 'widget' bundle compiler can see it
   const renderTeamBlock = (
     name: string,
     score: number,
@@ -53,12 +52,8 @@ const MatchActivity = (
     color: string,
     align: "leading" | "trailing",
   ) => {
-    // @expo/ui/swift-ui's Image only renders SF Symbols — its source props
-    // are `systemName` (built-in) and `assetName` (custom symbols added to
-    // your asset catalog). There's no prop for an arbitrary bitmap/path, so
-    // `uiImage` was never a real prop; it silently produced a stray fallback
-    // glyph instead of the team logo. Team logos need to be added to the
-    // asset catalog as symbol images and referenced by name here.
+    // Uses the cached team logo so that the local widget can render. It cannot make http calls.
+    // Could use the expo push notif sometime to save caching? Not sure how important that would be however.
     const logo = logoPath ? (
       <Image
         uiImage={logoPath}
