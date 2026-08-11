@@ -7,7 +7,7 @@ import {
   TabListProps,
 } from "expo-router/ui";
 import { SymbolView } from "expo-symbols";
-import { Pressable, useColorScheme, View, StyleSheet } from "react-native";
+import { Pressable, useColorScheme, View, StyleSheet, Image } from "react-native";
 
 import { ExternalLink } from "./external-link";
 import { ThemedText } from "./themed-text";
@@ -26,9 +26,6 @@ export default function AppTabs() {
           </TabTrigger>
           <TabTrigger name="team" href="/teams" asChild>
             <TabButton>Teams</TabButton>
-          </TabTrigger>
-          <TabTrigger name="about" href="/about" asChild>
-            <TabButton>About</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>
@@ -65,9 +62,15 @@ export function CustomTabList(props: TabListProps) {
   return (
     <View {...props} style={styles.tabListContainer}>
       <ThemedView type="backgroundElement" style={styles.innerContainer}>
-        <ThemedText type="smallBold" style={styles.brandText}>
-          Retake
-        </ThemedText>
+        <View style={styles.brandRow}>
+          <Image
+            source={require("@/assets/images/retake-logo.png")}
+            style={styles.brandLogo}
+          />
+          <ThemedText type="smallBold" style={styles.brandText}>
+            Retake
+          </ThemedText>
+        </View>
 
         {props.children}
       </ThemedView>
@@ -94,9 +97,18 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     maxWidth: MaxContentWidth,
   },
-  brandText: {
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     marginRight: "auto",
   },
+  brandLogo: {
+    width: 28,
+    height: 28,
+    resizeMode: "contain",
+  },
+  brandText: {},
   pressed: {
     opacity: 0.7,
   },

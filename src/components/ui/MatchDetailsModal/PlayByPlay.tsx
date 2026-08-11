@@ -1,11 +1,13 @@
 import { CSMatchResponse } from "@/api/pandascore-types";
+import { Match as HLTVMatch } from "@/api/hltv-types";
 import { View, Text, StyleSheet } from "react-native";
 
 interface PlayByPlayProps {
   match: CSMatchResponse | null | undefined;
+  HLTVData?: HLTVMatch | null;
 }
 
-export const PlayByPlay = ({ match }: PlayByPlayProps) => {
+export const PlayByPlay = ({ match, HLTVData }: PlayByPlayProps) => {
   if (!match) {
     return (
       <View style={styles.placeholderCard}>

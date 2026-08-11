@@ -13,8 +13,7 @@
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         },
-        "ITSAppUsesNonExemptEncryption": false,
-        "NSSupportsLiveActivities": true
+        "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.spersin00.cslivemobile"
     },
@@ -31,7 +30,7 @@
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png",
-      "proxy": "http://137.220.59.204:3003"
+      "proxy": "http://localhost:3003"
     },
     "plugins": [
       "expo-router",
@@ -52,13 +51,7 @@
           "color": "#208AEF"
         }
       ],
-      [
-        "expo-widgets",
-        {
-          "enablePushNotifications": true
-        }
-      ],
-      "expo-web-browser"
+      "./plugins/withLiveActivityWidget"
     ],
     "experiments": {
       "typedRoutes": true,

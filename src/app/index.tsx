@@ -1,10 +1,12 @@
 import {
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ThemedText } from "@/components/themed-text";
@@ -24,8 +26,8 @@ type TabType = "Yesterday" | "Today" | "Upcoming";
 export default function HomeScreen() {
   const { favorites, loaded } = useFavorites();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [games, setGames] = useState<any[]>();
-  const [dateFilter, setDateFilter] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<TabType>("Today");
   const theme = useTheme();
 
@@ -36,20 +38,24 @@ export default function HomeScreen() {
   };
 
   const fetchGames = useCallback(
-    async (pageNum: number, favoriteIds: number[], currentTab: TabType) => {
+    async (
+      pageNum: number,
+      favoriteIds: number[],
+      currentTab: TabType,
+      skipCache = false,
+    ) => {
       setLoading(true);
+
+      let day = 0;
       switch (currentTab) {
         case "Yesterday":
-          setDateFilter(-1);
+          day = -1;
           break;
         case "Today":
-          setDateFilter(0);
+          day = 0;
           break;
         case "Upcoming":
-          setDateFilter(1);
-          break;
-        default:
-          setDateFilter(0);
+          day = 1;
           break;
       }
 
@@ -57,14 +63,15 @@ export default function HomeScreen() {
         page: pageNum,
         perPage: PER_PAGE,
         team_ids: favoriteIds,
-        // Passes standard PandaScore date range query parameter configuration
-        day: dateFilter,
+        day,
+        skipCache,
       });
 
       setGames(data);
       setLoading(false);
+      setRefreshing(false);
     },
-    [dateFilter],
+    [],
   );
 
   // Trigger data synchronization whenever favorites materialize or user swaps views
@@ -80,6 +87,12 @@ export default function HomeScreen() {
       setLoading(false);
     }
   }, [favorites, loaded, activeTab, fetchGames]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    const favoriteIds: number[] = favorites.map((team: TeamData) => team.id);
+    fetchGames(1, favoriteIds, activeTab, true);
+  }, [favorites, activeTab, fetchGames]);
 
   const contentPlatformStyle: Record<string, any> | undefined = Platform.select(
     {
@@ -103,12 +116,32 @@ export default function HomeScreen() {
   );
 
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
-    >
-      <ThemedView style={styles.container}>
+    <View style={styles.screenRoot}>
+      <LinearGradient
+        colors={["#0a0e1f", "#000000"]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <ScrollView
+        style={styles.scrollView}
+        contentInsetAdjustmentBehavior="never"
+        contentInset={insets}
+        contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#fff"
+            colors={["#fff"]}
+          />
+        }
+      >
+      <ThemedView style={[styles.container, { backgroundColor: "#0000" }]}>
+        <View style={styles.header}>
+          <ThemedText type="title" style={styles.title}>
+            Matches
+          </ThemedText>
+        </View>
         <View style={styles.tabContainer}>
           {(["Yesterday", "Today", "Upcoming"] as TabType[]).map((tab) => {
             const isSelected = activeTab === tab;
@@ -137,13 +170,19 @@ export default function HomeScreen() {
 
         <MatchView games={games} loading={loading} />
 
-        {Platform.OS === "web" && <WebBadge />}
+        {
+          //Platform.OS === "web" && <WebBadge />}
+        }
       </ThemedView>
     </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screenRoot: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
   },
@@ -153,11 +192,15 @@ const styles = StyleSheet.create({
   container: {
     maxWidth: MaxContentWidth,
     flexGrow: 1,
-    gap: Spacing.three,
-    alignItems: "center",
+    gap: Spacing.five,
     paddingHorizontal: Spacing.four,
     paddingBottom: Spacing.six,
   },
+  header: {
+    gap: Spacing.two,
+    paddingTop: Spacing.two,
+  },
+  title: {},
   tabContainer: {
     flexDirection: "row",
     justifyContent: "center",

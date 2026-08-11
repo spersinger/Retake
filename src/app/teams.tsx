@@ -1,12 +1,13 @@
 import {
   ActivityIndicator,
-  Animated,
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   TextInput,
+  View,
+  StyleSheet,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -14,15 +15,10 @@ import { BottomTabInset, MaxContentWidth, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { getTeams } from "@/api/pandascore";
-import { Team, TeamData } from "@/components/ui/team-view";
+import { Team, TeamData, FavoriteCard } from "@/components/ui/team-view";
 
 import AntDesign from "@expo/vector-icons/AntDesign";
 import { useFavorites } from "@/hooks/use-favorites";
-
-interface Team {
-  id: number;
-  name: string;
-}
 
 const PER_PAGE = 25;
 
@@ -34,27 +30,18 @@ export default function TeamTabScreen() {
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [focused, setFocused] = useState(false);
-  const borderAnim = useRef(new Animated.Value(0)).current;
+  const inputRef = useRef<TextInput>(null);
 
-  const { favorites, loaded } = useFavorites();
-
-  useEffect(() => {
-    Animated.timing(borderAnim, {
-      toValue: focused ? 1 : 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [focused, borderAnim]);
+  const { favorites } = useFavorites();
 
   const fetchTeams = useCallback(
     async (pageNum: number, search: string, append: boolean) => {
       setLoading(true);
-      const data: Team[] = await getTeams({
+      const data: TeamData[] = await getTeams({
         page: pageNum,
         perPage: PER_PAGE,
         search,
       });
-
       setTeams((prev) => (append ? [...prev, ...data] : data));
       setHasMore(data.length === PER_PAGE);
       setLoading(false);
@@ -62,22 +49,44 @@ export default function TeamTabScreen() {
     [],
   );
 
-  // Initial load
   useEffect(() => {
     fetchTeams(1, "", false);
   }, [fetchTeams]);
 
-  const handleSearch = () => {
-    setPage(1);
-    setSubmittedQuery(query);
-    fetchTeams(1, query, false);
-  };
+  const skipFirst = useRef(true);
+  useEffect(() => {
+    if (skipFirst.current) {
+      skipFirst.current = false;
+      return;
+    }
+    const t = setTimeout(() => {
+      setPage(1);
+      setSubmittedQuery(query);
+      fetchTeams(1, query, false);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [query, fetchTeams]);
 
   const loadMore = () => {
     if (loading || !hasMore) return;
     const nextPage = page + 1;
     setPage(nextPage);
     fetchTeams(nextPage, submittedQuery, true);
+  };
+
+  const clearSearch = () => {
+    setQuery("");
+    setSubmittedQuery("");
+    inputRef.current?.blur();
+    fetchTeams(1, "", false);
+  };
+
+  const cancelSearch = () => {
+    setQuery("");
+    setSubmittedQuery("");
+    setFocused(false);
+    inputRef.current?.blur();
+    fetchTeams(1, "", false);
   };
 
   const safeAreaInsets = useSafeAreaInsets();
@@ -100,175 +109,215 @@ export default function TeamTabScreen() {
     },
   });
 
+  const showCancel = focused || query.length > 0;
+
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
-      onScroll={({ nativeEvent }) => {
-        const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-        const isCloseToBottom =
-          layoutMeasurement.height + contentOffset.y >=
-          contentSize.height - 150;
-        if (isCloseToBottom) loadMore();
-      }}
-      scrollEventThrottle={400}
-    >
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Teams</ThemedText>
-          <ThemedView type="backgroundElement" style={styles.searchRow}>
-            <Animated.View
-              style={[
-                styles.searchBorder,
-                { transform: [{ scaleX: borderAnim }] },
-              ]}
-              pointerEvents="none"
-            />
-            <TextInput
-              placeholder="Search teams..."
-              placeholderTextColor={theme.textSecondary}
-              value={query}
-              onChangeText={setQuery}
-              onSubmitEditing={handleSearch}
-              returnKeyType="search"
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              style={[
-                styles.searchInput,
-                { color: theme.text },
-                Platform.select({ web: { outlineStyle: "none" as any } }),
-              ]}
-            />
-            <Pressable onPress={handleSearch} style={styles.searchButton}>
-              <ThemedText style={styles.searchButtonText}>Search</ThemedText>
-            </Pressable>
-          </ThemedView>
-        </ThemedView>
+    <View style={styles.screenRoot}>
+      <LinearGradient
+        colors={["#0a0e1f", "#000000"]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <ScrollView
+        style={styles.scrollView}
+        contentInsetAdjustmentBehavior="never"
+        contentInset={insets}
+        contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
+        onScroll={({ nativeEvent }) => {
+          const { layoutMeasurement, contentOffset, contentSize } =
+            nativeEvent;
+          const paddingToBottom = 40;
+          if (
+            layoutMeasurement.height + contentOffset.y >=
+            contentSize.height - paddingToBottom
+          ) {
+            loadMore();
+          }
+        }}
+        scrollEventThrottle={400}
+      >
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <ThemedText type="title" style={styles.title}>
+              Teams
+            </ThemedText>
+          </View>
 
-        {loaded && favorites.length > 0 ? (
-          <ThemedView type="backgroundElement" style={styles.favoritesList}>
-            {favorites.map((team) => (
-              <Team key={team.id} team={team} />
-            ))}
-          </ThemedView>
-        ) : (
-          <ThemedView type="backgroundElement" style={styles.contentContainer}>
-            <ThemedText>Follow some teams!</ThemedText>
-          </ThemedView>
-        )}
-
-        <ThemedView style={styles.sectionsWrapper}>
-          {teams.length === 0 && loading ? (
-            <ActivityIndicator />
-          ) : (
-            <>
-              {teams.map((team) => (
-                <Team key={team.id} team={team} />
-              ))}
-              {loading && teams.length > 0 && (
-                <ActivityIndicator style={{ marginVertical: Spacing.three }} />
+          <View style={styles.searchRow}>
+            <View
+              style={[styles.searchField, focused && styles.searchFieldFocused]}
+            >
+              <AntDesign
+                name="search"
+                size={18}
+                color={theme.textSecondary}
+                style={styles.searchIcon}
+              />
+              <TextInput
+                ref={inputRef}
+                style={[styles.searchInput, { color: theme.text }]}
+                placeholder="Search teams"
+                placeholderTextColor={theme.textSecondary}
+                value={query}
+                onChangeText={setQuery}
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
+                returnKeyType="search"
+              />
+              {query.length > 0 && (
+                <Pressable onPress={clearSearch} hitSlop={8}>
+                  <AntDesign
+                    name="close-circle"
+                    size={18}
+                    color={theme.textSecondary}
+                  />
+                </Pressable>
               )}
-            </>
-          )}
-        </ThemedView>
-      </ThemedView>
-    </ScrollView>
+            </View>
+            {showCancel && (
+              <Pressable onPress={cancelSearch} style={styles.cancelButton}>
+                <ThemedText style={styles.cancelText}>Cancel</ThemedText>
+              </Pressable>
+            )}
+          </View>
+
+          <View style={styles.section}>
+            <ThemedText themeColor="textSecondary" style={styles.sectionHeader}>
+              Subscribed
+            </ThemedText>
+            {favorites.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.favScroll}
+              >
+                {favorites.map((team) => (
+                  <FavoriteCard key={team.id} team={team} />
+                ))}
+              </ScrollView>
+            ) : (
+              <ThemedView type="backgroundElement" style={styles.emptyHint}>
+                <ThemedText
+                  themeColor="textSecondary"
+                  style={styles.emptyHintText}
+                >
+                  Subscribe to teams to track their matches.
+                </ThemedText>
+              </ThemedView>
+            )}
+          </View>
+
+          <View style={styles.section}>
+            <ThemedText themeColor="textSecondary" style={styles.sectionHeader}>
+              {query.length > 0 ? "Results" : "All Teams"}
+            </ThemedText>
+            <ThemedView type="backgroundElement" style={styles.groupedCard}>
+              {loading && teams.length === 0 ? (
+                <ActivityIndicator style={styles.status} />
+              ) : teams.length === 0 ? (
+                <ThemedText themeColor="textSecondary" style={styles.status}>
+                  {query.length > 0
+                    ? `No teams found for "${submittedQuery}"`
+                    : "No teams available"}
+                </ThemedText>
+              ) : (
+                <View>
+                  {teams.map((team, i) => (
+                    <View key={team.id}>
+                      <Team team={team} />
+                      {i < teams.length - 1 && <View style={styles.divider} />}
+                    </View>
+                  ))}
+                  {loading && teams.length > 0 && (
+                    <ActivityIndicator style={styles.status} />
+                  )}
+                </View>
+              )}
+            </ThemedView>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-  },
-  favoritesList: {
-    alignSelf: "stretch",
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.four,
-  },
+  screenRoot: { flex: 1 },
+  scrollView: { flex: 1 },
   contentContainer: {
     flexDirection: "row",
     justifyContent: "center",
+    backgroundColor: "transparent",
   },
   container: {
     maxWidth: MaxContentWidth,
     flexGrow: 1,
     paddingHorizontal: Spacing.four,
-  },
-  titleContainer: {
-    gap: Spacing.three,
-    alignItems: "center",
-    paddingVertical: Spacing.six,
-  },
-  centerText: {
-    textAlign: "center",
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  linkButton: {
-    flexDirection: "row",
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
-    justifyContent: "center",
-    gap: Spacing.one,
-    alignItems: "center",
-  },
-  sectionsWrapper: {
+    backgroundColor: "transparent",
     gap: Spacing.five,
-    paddingTop: Spacing.three,
+    paddingBottom: Spacing.five,
   },
-  collapsibleContent: {
-    alignItems: "center",
+  header: {
+    paddingTop: Spacing.two,
   },
-  imageTutorial: {
-    width: "100%",
-    aspectRatio: 296 / 171,
-    borderRadius: Spacing.three,
-    marginTop: Spacing.two,
-  },
-  imageReact: {
-    width: 100,
-    height: 100,
-    alignSelf: "center",
-  },
+  title: {},
   searchRow: {
-    width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 999,
-    overflow: "hidden",
-    paddingLeft: Spacing.five,
+    gap: Spacing.two,
   },
-  searchBorder: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 999,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: "rgba(128,128,128,0.5)",
-  },
-  searchInput: {
-    flex: 5,
-    paddingVertical: Spacing.three,
-    fontSize: 16,
-  },
-  searchButton: {
+  searchField: {
     flex: 1,
-    height: 44,
+    flexDirection: "row",
     alignItems: "center",
-    padding: 10,
-    justifyContent: "center",
-    borderLeftWidth: 1,
-    borderLeftColor: "rgba(128,128,128,0.3)",
+    gap: Spacing.two,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 999,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.three,
   },
-  searchButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
+  searchFieldFocused: {
+    borderWidth: 1,
+    borderColor: "#3c87f7",
   },
+  searchIcon: {},
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 0,
+  },
+  cancelButton: { paddingVertical: Spacing.two },
+  cancelText: { fontSize: 16, fontWeight: "600" },
+  section: { gap: Spacing.two },
+  sectionHeader: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  favScroll: {
+    gap: Spacing.three,
+    paddingVertical: Spacing.one,
+  },
+  emptyHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: Spacing.four,
+  },
+  emptyHintText: { fontSize: 14, flexShrink: 1 },
+  groupedCard: {
+    borderRadius: Spacing.four,
+    overflow: "hidden",
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.three,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    marginHorizontal: 0,
+  },
+  status: { padding: Spacing.three, textAlign: "center" },
+  pressed: { opacity: 0.6 },
 });

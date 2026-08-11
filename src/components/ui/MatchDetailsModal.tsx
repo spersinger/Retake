@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useCallback } from "react";
-import teamDictionaryRaw from "@/constants/team-dictionary.json";
 
 import {
   View,
@@ -10,66 +9,31 @@ import {
   Image,
   ScrollView,
 } from "react-native";
-import { BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
+import { BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { Spacing } from "@/constants/theme";
 import { CSMatchResponse, Game } from "@/api/pandascore-types";
 import { Summary } from "./MatchDetailsModal/Summary";
 import { PlayByPlay } from "./MatchDetailsModal/PlayByPlay";
 import { StreamView } from "./MatchDetailsModal/StreamView";
-import { useScrollViewOffset } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Match } from "@/api/hltv-types";
+import { formatMapName } from "@/utils/maps";
+import { useMatchDetails } from "@/hooks/use-match-details";
+import { useLiveActivity } from "@/hooks/use-live-activity";
+import { cacheTeamLogo } from "@/utils/cache-team-logo";
+import { useBuildAction } from "expo-router/build/react-navigation/native/useLinkBuilder";
+import { getTeamVisuals } from "@/utils/get-team-visuals";
 
-const { width } = Dimensions.get("window");
+const { width, height: screenHeight } = Dimensions.get("window");
 
 interface MatchDetailModalProps {
   bottomSheetModalRef: React.RefObject<BottomSheetModal | null>;
   matchData: CSMatchResponse | null | undefined;
   gamesData?: Game[] | null;
+  HLTVData?: Match;
 }
 
 const SEGMENTS = 30;
-
-// Type definition matching the output of your pagination scraper script
-interface TeamDictionaryEntry {
-  color: string;
-  logo: string | null;
-}
-
-const teamLookup = teamDictionaryRaw as Record<
-  string,
-  TeamDictionaryEntry | undefined
->;
-
-// Safe lookup utility supporting strict matching and lower-case fuzzy falling back
-const getTeamVisuals = (teamName: string, defaultColor: string) => {
-  if (!teamName) return { color: defaultColor, logo: null };
-
-  // 1. Direct exact key lookup
-  const exactMatch = teamLookup[teamName];
-  if (exactMatch) {
-    return {
-      color: exactMatch.color,
-      logo: exactMatch.logo,
-    };
-  }
-
-  // 2. Case-insensitive fuzzy scanning
-  const normalizedInput = teamName.toLowerCase().trim();
-  const foundKey = Object.keys(teamLookup).find(
-    (key) =>
-      key.toLowerCase().trim() === normalizedInput ||
-      normalizedInput.includes(key.toLowerCase()),
-  );
-
-  if (foundKey && teamLookup[foundKey]) {
-    return {
-      color: teamLookup[foundKey]!.color,
-      logo: teamLookup[foundKey]!.logo,
-    };
-  }
-
-  // 3. Fallback values if team isn't stored inside the local file yet
-  return { color: defaultColor, logo: null };
-};
 
 // Parses a string like "hsl(120, 75%, 50%)" into raw numeric values
 const parseHsl = (hslString: string) => {
@@ -114,10 +78,18 @@ export default function MatchDetailModal({
   bottomSheetModalRef,
   matchData,
   gamesData,
+  HLTVData,
 }: MatchDetailModalProps) {
   const [activeTab, setActiveTab] = useState<
     "Summary" | "Play-By-Play" | "Live Stream"
   >("Summary");
+
+  const { refreshHLTV } = useMatchDetails();
+  const { activeMatchId, isStarting, startActivity, stopActivity } =
+    useLiveActivity();
+
+  const isLiveActivityActive = activeMatchId === matchData?.id;
+  const insets = useSafeAreaInsets();
 
   const teamA = matchData?.opponents?.[0]?.opponent || {
     id: -1,
@@ -130,8 +102,37 @@ export default function MatchDetailModal({
     image_url: null,
   };
 
-  const scoreA = matchData?.results?.[0]?.score ?? 4;
-  const scoreB = matchData?.results?.[1]?.score ?? 4;
+  // 2. Map HLTV teams to PandaScore opponent ordering
+  const hltvTeamMapping = useMemo(() => {
+    if (!HLTVData) return null;
+    const aName = teamA.name?.toLowerCase();
+    const bName = teamB.name?.toLowerCase();
+    const t1Name = HLTVData.team1?.name?.toLowerCase();
+    const t2Name = HLTVData.team2?.name?.toLowerCase();
+    return {
+      teamAIsTeam1: aName === t1Name,
+      teamAIsTeam2: aName === t2Name,
+      teamBIsTeam1: bName === t1Name,
+      teamBIsTeam2: bName === t2Name,
+    };
+  }, [HLTVData, teamA.name, teamB.name]);
+
+  const liveScoreA = useMemo(() => {
+    if (!HLTVData?.currentScore || !hltvTeamMapping) return null;
+    const { team1Score, team2Score } = HLTVData.currentScore;
+    if (team1Score === undefined || team2Score === undefined) return null;
+    return hltvTeamMapping.teamAIsTeam1 ? team1Score : team2Score;
+  }, [HLTVData?.currentScore, hltvTeamMapping]);
+
+  const liveScoreB = useMemo(() => {
+    if (!HLTVData?.currentScore || !hltvTeamMapping) return null;
+    const { team1Score, team2Score } = HLTVData.currentScore;
+    if (team1Score === undefined || team2Score === undefined) return null;
+    return hltvTeamMapping.teamBIsTeam1 ? team1Score : team2Score;
+  }, [HLTVData?.currentScore, hltvTeamMapping]);
+
+  const scoreA = liveScoreA ?? matchData?.results?.[0]?.score ?? 4;
+  const scoreB = liveScoreB ?? matchData?.results?.[1]?.score ?? 4;
 
   // Resolve visual configuration values using useMemo
   const teamAVisuals = useMemo(
@@ -146,9 +147,11 @@ export default function MatchDetailModal({
   const teamAColor = teamAVisuals.color;
   const teamBColor = teamBVisuals.color;
 
-  // Prefer your dictionary fallback image links over live panda API results if overridden
-  const teamALogo = teamAVisuals.logo || teamA.image_url;
-  const teamBLogo = teamBVisuals.logo || teamB.image_url;
+  // Prefer dark mode logos, then dictionary, then regular API image
+  const teamALogo = (teamA as any).dark_mode_image_url || teamAVisuals.logo || teamA.image_url;
+  const teamBLogo = (teamB as any).dark_mode_image_url || teamBVisuals.logo || teamB.image_url;
+
+  const tiltAngle = useMemo(() => (Math.random() - 0.5) * 4, []);
 
   // Safely map background segment elements matching generated HSL color configurations
   const gradientSegments = useMemo(
@@ -164,20 +167,59 @@ export default function MatchDetailModal({
     [teamAColor, teamBColor],
   );
 
+  const patternDots = useMemo(() => {
+    const gap = 16;
+    const dotSize = 2;
+    const cols = Math.ceil(width / gap) + 1;
+    const rows = Math.ceil(screenHeight / gap) + 10;
+    const dots: React.JSX.Element[] = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const offset = r % 2 === 0 ? 0 : gap / 2;
+        const isVisible = (r * cols + c) % 3 !== 0;
+        if (isVisible) {
+          dots.push(
+            <View
+              key={`${r}-${c}`}
+              style={{
+                position: "absolute",
+                left: c * gap + offset,
+                top: r * gap,
+                width: dotSize,
+                height: dotSize,
+                borderRadius: dotSize / 2,
+                backgroundColor: "rgba(255,255,255,0.035)",
+              }}
+            />,
+          );
+        }
+      }
+    }
+    return dots;
+  }, []);
+
   const Background = useCallback(
     (props: { style?: any }) => {
       return (
         <View style={[props.style, styles.modalBackground]}>
-          <View style={styles.gradientContainer}>
+          <View
+            style={[
+              styles.gradientContainer,
+              { transform: [{ rotate: `${tiltAngle}deg` }, { scale: 1.2 }] },
+            ]}
+          >
             {gradientSegments.map((seg, i) => (
               <View key={i} style={seg} />
             ))}
             <View style={styles.darkGradientOverlay} />
           </View>
+          <View style={styles.textureContainer} pointerEvents="none">
+            {patternDots}
+          </View>
         </View>
       );
     },
-    [gradientSegments],
+    [gradientSegments, patternDots, tiltAngle],
   );
   // 1. Find the active game (currently running) or fallback to the last game played/playing
   const currentGame = useMemo(() => {
@@ -192,54 +234,176 @@ export default function MatchDetailModal({
     return source[source.length - 1];
   }, [gamesData, matchData?.games]);
 
-  // 2. Extract map name/number info
+  // 3. Find the matching HLTV map for the current game
+  const currentHLTVMap = useMemo(() => {
+    if (!HLTVData?.maps || !currentGame?.position) return null;
+    return HLTVData.maps[currentGame.position - 1] || null;
+  }, [HLTVData, currentGame]);
+
+  // 4. Extract map name/number info
   const mapLabel = useMemo(() => {
+    if (currentHLTVMap?.name) return formatMapName(currentHLTVMap.name);
     if (!currentGame) return "MAP 1";
     return `MAP ${currentGame.position}`;
-  }, [currentGame]);
+  }, [currentGame, currentHLTVMap]);
 
-  // 3. Extract the round-by-round score for this specific map
+  // 5. Extract the round-by-round score for this specific map
   const currentMapScores = useMemo(() => {
     const defaultScores = { scoreA: 0, scoreB: 0 };
-    if (!currentGame?.rounds_score || currentGame.rounds_score.length === 0) {
-      return defaultScores;
+
+    // Prefer PandaScore rounds_score when available
+    if (currentGame?.rounds_score && currentGame.rounds_score.length > 0) {
+      const idA = matchData?.opponents?.[0]?.opponent?.id;
+      const idB = matchData?.opponents?.[1]?.opponent?.id;
+      const roundScoreA =
+        currentGame.rounds_score.find((r) => r.team_id === idA)?.score ?? 0;
+      const roundScoreB =
+        currentGame.rounds_score.find((r) => r.team_id === idB)?.score ?? 0;
+      return { scoreA: roundScoreA, scoreB: roundScoreB };
     }
 
-    // Match round scores to team IDs using the order defined in opponents
-    const idA = matchData?.opponents?.[0]?.opponent?.id;
-    const idB = matchData?.opponents?.[1]?.opponent?.id;
+    // Fallback to HLTV map result
+    if (currentHLTVMap?.result && hltvTeamMapping) {
+      const { team1TotalRounds, team2TotalRounds } = currentHLTVMap.result;
+      return {
+        scoreA: hltvTeamMapping.teamAIsTeam1
+          ? team1TotalRounds
+          : team2TotalRounds,
+        scoreB: hltvTeamMapping.teamBIsTeam1
+          ? team1TotalRounds
+          : team2TotalRounds,
+      };
+    }
 
-    const roundScoreA =
-      currentGame.rounds_score.find((r) => r.team_id === idA)?.score ?? 0;
-    const roundScoreB =
-      currentGame.rounds_score.find((r) => r.team_id === idB)?.score ?? 0;
+    return defaultScores;
+  }, [currentGame, matchData?.opponents, currentHLTVMap, hltvTeamMapping]);
 
-    return {
-      scoreA: roundScoreA,
-      scoreB: roundScoreB,
-    };
-  }, [currentGame, matchData?.opponents]);
-
-  // 4. Derive per-round winner indicators for the live ticker
+  // 6. Derive per-round winner indicators for the live ticker
   const roundIndicators = useMemo(() => {
-    if (!currentGame?.rounds) return [];
-    const idA = matchData?.opponents?.[0]?.opponent?.id;
-    return currentGame.rounds.map((r) => ({
-      key: r.number,
-      isTeamA: r.winner_team_id === idA,
-      isTeamB: r.winner_team_id !== idA && r.winner_team_id != null,
-    }));
-  }, [currentGame, matchData?.opponents]);
+    if (currentGame?.rounds) {
+      const idA = matchData?.opponents?.[0]?.opponent?.id;
+      return currentGame.rounds.map((r) => ({
+        key: r.number,
+        isTeamA: r.winner_team_id === idA,
+        isTeamB: r.winner_team_id !== idA && r.winner_team_id != null,
+        half: undefined as number | undefined,
+      }));
+    }
+
+    if (!currentHLTVMap?.result?.halfResults || !hltvTeamMapping) return [];
+
+    const indicators: Array<{
+      key: string;
+      isTeamA: boolean;
+      isTeamB: boolean;
+      half: number;
+    }> = [];
+    currentHLTVMap.result.halfResults.forEach((half, halfIdx) => {
+      const t1Rounds = half.team1Rounds ?? 0;
+      const t2Rounds = half.team2Rounds ?? 0;
+      const aRounds = hltvTeamMapping.teamAIsTeam1 ? t1Rounds : t2Rounds;
+      const bRounds = hltvTeamMapping.teamBIsTeam1 ? t1Rounds : t2Rounds;
+
+      for (let i = 0; i < aRounds; i++) {
+        indicators.push({
+          key: `h${halfIdx}-a${i}`,
+          isTeamA: true,
+          isTeamB: false,
+          half: halfIdx,
+        });
+      }
+      for (let i = 0; i < bRounds; i++) {
+        indicators.push({
+          key: `h${halfIdx}-b${i}`,
+          isTeamA: false,
+          isTeamB: true,
+          half: halfIdx,
+        });
+      }
+    });
+    return indicators;
+  }, [currentGame, matchData?.opponents, currentHLTVMap, hltvTeamMapping]);
 
   return (
     <BottomSheetModal
       ref={bottomSheetModalRef}
-      snapPoints={["65%", "100%"]}
+      topInset={insets.top}
+      snapPoints={[screenHeight * 0.65, "100%"]}
       index={0}
       backgroundComponent={Background}
       handleIndicatorStyle={styles.modalHandle}
+      activeOffsetY={[-10, 10]}
     >
-      <BottomSheetView style={styles.modalContent}>
+      <BottomSheetScrollView contentContainerStyle={styles.modalContent}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.refreshButton} onPress={refreshHLTV}>
+            <Text style={styles.refreshButtonText}>↻</Text>
+          </TouchableOpacity>
+          {(matchData?.status === "running" || __DEV__) && (
+            <TouchableOpacity
+              style={[
+                styles.liveActivityButton,
+                isLiveActivityActive && styles.liveActivityButtonActive,
+              ]}
+              onPress={async () => {
+                if (isLiveActivityActive) {
+                  stopActivity();
+                  return;
+                }
+                const [team1LogoPath, team2LogoPath] = await Promise.all([
+                  cacheTeamLogo(teamALogo ? teamALogo : ""),
+                  cacheTeamLogo(teamBLogo ? teamBLogo : ""),
+                ]);
+                console.log(team1LogoPath);
+                console.log(team2LogoPath);
+                startActivity(matchData!.id, {
+                  league: matchData?.league?.name || "Counter Strike",
+                  team1: teamA.name,
+                  team2: teamB.name,
+                  team1Score: scoreA,
+                  team2Score: scoreB,
+                  team1LogoPath,
+                  team2LogoPath,
+                  team1Color: teamAColor,
+                  team2Color: teamBColor,
+                  bestOf: matchData?.number_of_games,
+                  mapLabel,
+                  status:
+                    matchData?.status
+                      .toLowerCase()
+                      .replace(/_/g, " ")
+                      .replace(/\b\w/g, (c) => c.toUpperCase()) || "Unknown",
+
+                  roundScoreA: currentMapScores.scoreA,
+                  roundScoreB: currentMapScores.scoreB,
+                  matchTypeLabel:
+                    matchData?.match_type?.replace("_", " ").toUpperCase() ??
+                    "",
+                  detailLine:
+                    HLTVData?.timeRemaining !== undefined
+                      ? `${Math.floor(HLTVData.timeRemaining / 60)}:${String(HLTVData.timeRemaining % 60).padStart(2, "0")} remaining`
+                      : undefined,
+                });
+              }}
+            >
+              <Text
+                style={[
+                  styles.liveActivityButtonText,
+                  isLiveActivityActive && styles.liveActivityButtonTextActive,
+                ]}
+              >
+                {isStarting ? "..." : isLiveActivityActive ? "●" : "○"}
+              </Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => bottomSheetModalRef.current?.close()}
+          >
+            <Text style={styles.closeButtonText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* --- HEADER: Game Info --- */}
         <Text style={styles.gameStatusText}>
           {matchData?.status === "running"
@@ -253,7 +417,14 @@ export default function MatchDetailModal({
         {/* --- SCOREBOARD ROW WITH TEAM LOGOS --- */}
         <View style={styles.scoreboardRow}>
           <View style={styles.teamContainer}>
-            <Text style={styles.scoreText}>{scoreA}</Text>
+            <View style={styles.scoreWithRound}>
+              <Text style={styles.scoreText}>{scoreA}</Text>
+              {matchData?.status === "running" && (
+                <Text style={styles.roundScoreText}>
+                  {currentMapScores.scoreA}
+                </Text>
+              )}
+            </View>
             {teamALogo ? (
               <Image source={{ uri: teamALogo }} style={styles.teamLogo} />
             ) : (
@@ -277,33 +448,50 @@ export default function MatchDetailModal({
             {/* Displays "MAP 1", "MAP 2", etc. */}
             <Text style={styles.vsText}>{mapLabel}</Text>
 
-            {/* Displays the round score for this map (e.g., "11-9") */}
-            <View style={styles.diamondIndicator}>
-              <Text style={styles.countText}>
-                {`${currentMapScores.scoreA}-${currentMapScores.scoreB}`}
+            {/* Round countdown timer */}
+            {matchData?.status === "running" &&
+            HLTVData?.timeRemaining !== undefined ? (
+              <Text style={styles.countdownText}>
+                {Math.floor(HLTVData.timeRemaining / 60)}:
+                {String(HLTVData.timeRemaining % 60).padStart(2, "0")}
               </Text>
-            </View>
+            ) : matchData?.status === "running" && HLTVData?.hasScorebot ? (
+              <Text style={styles.countdownText}>Round over</Text>
+            ) : null}
 
             {/* Live round ticker — colored dots showing each round's winner */}
-            {roundIndicators.length > 0 && (
-              <View style={styles.roundTicker}>
-                {roundIndicators.map((r) => (
-                  <View
-                    key={r.key}
-                    style={[
-                      styles.roundDot,
-                      {
-                        backgroundColor: r.isTeamA
-                          ? teamAColor
-                          : r.isTeamB
-                            ? teamBColor
-                            : "rgba(255,255,255,0.15)",
-                      },
-                    ]}
-                  />
-                ))}
-              </View>
-            )}
+            {matchData?.status === "running" && roundIndicators.length > 0 ? (
+                <View style={styles.roundTicker}>
+                  {roundIndicators.map((r, idx) => (
+                    <React.Fragment key={r.key}>
+                      {/* Half separator for HLTV-derived data */}
+                      {idx > 0 &&
+                        r.half !== undefined &&
+                        r.half !== roundIndicators[idx - 1]?.half && (
+                          <View style={styles.halfSeparator} />
+                        )}
+                      <View
+                        style={[
+                          styles.roundDot,
+                          {
+                            backgroundColor: r.isTeamA
+                              ? teamAColor
+                              : r.isTeamB
+                                ? teamBColor
+                                : "rgba(255,255,255,0.15)",
+                          },
+                        ]}
+                      />
+                    </React.Fragment>
+                  ))}
+                </View>
+              ) : !HLTVData && !currentGame?.rounds ? (
+                <View style={styles.roundTicker}>
+                  <Text style={styles.placeholderText}>
+                    Detailed stats are not available for this match
+                  </Text>
+                </View>
+              ) : null}
 
             <Text style={styles.matchTypeText}>
               {matchData?.match_type?.replace("_", " ").toUpperCase() +
@@ -313,7 +501,14 @@ export default function MatchDetailModal({
           </View>
 
           <View style={styles.teamContainer}>
-            <Text style={styles.scoreText}>{scoreB}</Text>
+            <View style={styles.scoreWithRound}>
+              <Text style={styles.scoreText}>{scoreB}</Text>
+              {matchData?.status === "running" && (
+                <Text style={styles.roundScoreText}>
+                  {currentMapScores.scoreB}
+                </Text>
+              )}
+            </View>
             {teamBLogo ? (
               <Image source={{ uri: teamBLogo }} style={styles.teamLogo} />
             ) : (
@@ -336,7 +531,7 @@ export default function MatchDetailModal({
 
         {/* --- TABS SYSTEM --- */}
         <View style={styles.tabContainer}>
-          {(["Summary", "Play-By-Play", "Live Stream"] as const).map((tab) => (
+          {(["Summary", "Live Stream"] as const).map((tab) => (
             <TouchableOpacity
               key={tab}
               onPress={() => setActiveTab(tab)}
@@ -358,16 +553,74 @@ export default function MatchDetailModal({
         </View>
 
         {/* --- CONDITIONALLY RENDERED SEGMENT TABS CONTENT --- */}
-        {activeTab === "Summary" && <Summary match={matchData} />}
+        {activeTab === "Summary" && (
+          <Summary
+            match={matchData}
+            HLTVData={HLTVData}
+            teamAColor={teamAColor}
+            teamBColor={teamBColor}
+          />
+        )}
 
-        {activeTab === "Play-By-Play" && <PlayByPlay match={matchData} />}
         {activeTab === "Live Stream" && <StreamView match={matchData} />}
-      </BottomSheetView>
+      </BottomSheetScrollView>
     </BottomSheetModal>
   );
 }
 
 const styles = StyleSheet.create({
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+    paddingRight: 16,
+    marginBottom: 8,
+    width: "100%",
+  },
+  refreshButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  refreshButtonText: {
+    color: "#FFF",
+    fontSize: 18,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  liveActivityButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  liveActivityButtonActive: {
+    backgroundColor: "rgba(255,70,60,0.3)",
+  },
+  liveActivityButtonText: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 16,
+  },
+  liveActivityButtonTextActive: {
+    color: "#FF453A",
+    fontSize: 18,
+  },
   modalBackground: {
     backgroundColor: "#161210",
     borderRadius: 32,
@@ -384,7 +637,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     position: "relative",
+    width: "100%",
   },
+
   gradientContainer: {
     position: "absolute",
     top: 0,
@@ -401,6 +656,14 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     backgroundColor: "rgba(22, 18, 16, 0.25)", // Dark overlay layer to guarantee card legibility
+  },
+  textureContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    overflow: "hidden",
   },
   innerContent: {
     width: "100%",
@@ -474,17 +737,23 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 13,
   },
-  diamondIndicator: {
-    marginVertical: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 6,
-  },
-  countText: {
+  roundScoreText: {
     color: "#8A8A8F",
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: "600",
+    fontVariant: ["tabular-nums"],
+  },
+  scoreWithRound: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 4,
+  },
+  countdownText: {
+    color: "#FF453A",
+    fontSize: 13,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
+    marginVertical: 2,
   },
   matchTypeText: {
     color: "#FFFFFF",
@@ -504,18 +773,28 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 2,
   },
+  halfSeparator: {
+    width: 2,
+    height: 12,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 1,
+  },
+
   tabContainer: {
     flexDirection: "row",
-    width: "100%",
     justifyContent: "center",
+    alignItems: "center",
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255,255,255,0.12)",
     marginBottom: 12,
-    paddingHorizontal: 4,
+    gap: 24,
+    width: "100%",
+    marginHorizontal: -16, // cancel out parent padding so border goes edge to edge
+    paddingHorizontal: 16, // re-add it so tabs themselves have breathing room
   },
+
   tabButton: {
     paddingVertical: 10,
-    marginRight: 24,
   },
   activeTabButton: {
     borderBottomWidth: 2,
@@ -536,9 +815,13 @@ const styles = StyleSheet.create({
     padding: 32,
     alignItems: "center",
     justifyContent: "center",
+    alignSelf: "center",
   },
   placeholderText: {
-    color: "rgba(255,255,255,0.6)",
+    color: "rgba(255,255,255,0.4)",
     fontSize: 13,
+    textAlign: "center",
+    fontWeight: "bold",
+    alignSelf: "center",
   },
 });
