@@ -98,6 +98,9 @@ export const Summary = ({ match, HLTVData, teamAColor = "#3C9FFE", teamBColor = 
             }
             const mapName =
               formatMapName(hltvMap?.name) || `Game ${game.position}`;
+            const hasRoundScores =
+              (game.rounds_score && game.rounds_score.length > 0) ||
+              (hltvMap?.result && HLTVData);
             return (
               <View key={game.id} style={styles.gameLogRow}>
                 <View style={styles.gameMapColumn}>
@@ -121,9 +124,11 @@ export const Summary = ({ match, HLTVData, teamAColor = "#3C9FFE", teamBColor = 
                     </View>
                   </View>
                 </View>
-                <Text style={styles.gameScoreColumn}>
-                  {roundScoreA} - {roundScoreB}
-                </Text>
+                {hasRoundScores ? (
+                  <Text style={styles.gameScoreColumn}>
+                    {roundScoreA} - {roundScoreB}
+                  </Text>
+                ) : null}
                 <View style={styles.gameWinnerColumn}>
                   <View style={styles.winnerBadge}>
                     <Text

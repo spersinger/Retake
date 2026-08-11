@@ -13,8 +13,9 @@ interface GetTeamsParams {
 export interface GetGamesParams {
   page?: number;
   perPage?: number;
-  team_ids?: number | number[]; // Pandascore accepts single IDs or arrays for filters
+  team_ids?: number | number[];
   day?: number;
+  skipCache?: boolean;
 }
 
 export interface GetGameParams {
@@ -99,16 +100,18 @@ export const getGames = async ({
   perPage = 50,
   team_ids,
   day = 0,
+  skipCache = false,
 }: GetGamesParams = {}) => {
-  // Generate a distinct cache key
   const teamIdsStr = Array.isArray(team_ids)
     ? team_ids.join(",")
     : (team_ids ?? "");
   const key = `games-${page}-${perPage}-${teamIdsStr}-${day}`;
 
-  const cached = cache.get(key);
-  if (cached && Date.now() < cached.expiry) {
-    return cached.data;
+  if (!skipCache) {
+    const cached = cache.get(key);
+    if (cached && Date.now() < cached.expiry) {
+      return cached.data;
+    }
   }
 
   const now = new Date();

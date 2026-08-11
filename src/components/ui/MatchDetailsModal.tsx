@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useCallback } from "react";
-import teamDictionaryRaw from "@/constants/team-dictionary.json";
 
 import {
   View,
@@ -16,7 +15,6 @@ import { CSMatchResponse, Game } from "@/api/pandascore-types";
 import { Summary } from "./MatchDetailsModal/Summary";
 import { PlayByPlay } from "./MatchDetailsModal/PlayByPlay";
 import { StreamView } from "./MatchDetailsModal/StreamView";
-import { useScrollViewOffset } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Match } from "@/api/hltv-types";
 import { formatMapName } from "@/utils/maps";
@@ -24,6 +22,7 @@ import { useMatchDetails } from "@/hooks/use-match-details";
 import { useLiveActivity } from "@/hooks/use-live-activity";
 import { cacheTeamLogo } from "@/utils/cache-team-logo";
 import { useBuildAction } from "expo-router/build/react-navigation/native/useLinkBuilder";
+import { getTeamVisuals } from "@/utils/get-team-visuals";
 
 const { width, height: screenHeight } = Dimensions.get("window");
 
@@ -35,49 +34,6 @@ interface MatchDetailModalProps {
 }
 
 const SEGMENTS = 30;
-
-// Type definition matching the output of your pagination scraper script
-interface TeamDictionaryEntry {
-  color: string;
-  logo: string | null;
-}
-
-const teamLookup = teamDictionaryRaw as Record<
-  string,
-  TeamDictionaryEntry | undefined
->;
-
-// Safe lookup utility supporting strict matching and lower-case fuzzy falling back
-const getTeamVisuals = (teamName: string, defaultColor: string) => {
-  if (!teamName) return { color: defaultColor, logo: null };
-
-  // 1. Direct exact key lookup
-  const exactMatch = teamLookup[teamName];
-  if (exactMatch) {
-    return {
-      color: exactMatch.color,
-      logo: exactMatch.logo,
-    };
-  }
-
-  // 2. Case-insensitive fuzzy scanning
-  const normalizedInput = teamName.toLowerCase().trim();
-  const foundKey = Object.keys(teamLookup).find(
-    (key) =>
-      key.toLowerCase().trim() === normalizedInput ||
-      normalizedInput.includes(key.toLowerCase()),
-  );
-
-  if (foundKey && teamLookup[foundKey]) {
-    return {
-      color: teamLookup[foundKey]!.color,
-      logo: teamLookup[foundKey]!.logo,
-    };
-  }
-
-  // 3. Fallback values if team isn't stored inside the local file yet
-  return { color: defaultColor, logo: null };
-};
 
 // Parses a string like "hsl(120, 75%, 50%)" into raw numeric values
 const parseHsl = (hslString: string) => {
@@ -191,9 +147,9 @@ export default function MatchDetailModal({
   const teamAColor = teamAVisuals.color;
   const teamBColor = teamBVisuals.color;
 
-  // Prefer your dictionary fallback image links over live panda API results if overridden
-  const teamALogo = teamAVisuals.logo || teamA.image_url;
-  const teamBLogo = teamBVisuals.logo || teamB.image_url;
+  // Prefer dark mode logos, then dictionary, then regular API image
+  const teamALogo = (teamA as any).dark_mode_image_url || teamAVisuals.logo || teamA.image_url;
+  const teamBLogo = (teamB as any).dark_mode_image_url || teamBVisuals.logo || teamB.image_url;
 
   const tiltAngle = useMemo(() => (Math.random() - 0.5) * 4, []);
 
@@ -376,6 +332,7 @@ export default function MatchDetailModal({
       index={0}
       backgroundComponent={Background}
       handleIndicatorStyle={styles.modalHandle}
+      activeOffsetY={[-10, 10]}
     >
       <BottomSheetScrollView contentContainerStyle={styles.modalContent}>
         <View style={styles.headerRow}>
@@ -503,8 +460,7 @@ export default function MatchDetailModal({
             ) : null}
 
             {/* Live round ticker — colored dots showing each round's winner */}
-            {matchData?.status === "running" ? (
-              roundIndicators.length > 0 ? (
+            {matchData?.status === "running" && roundIndicators.length > 0 ? (
                 <View style={styles.roundTicker}>
                   {roundIndicators.map((r, idx) => (
                     <React.Fragment key={r.key}>
@@ -535,8 +491,7 @@ export default function MatchDetailModal({
                     Detailed stats are not available for this match
                   </Text>
                 </View>
-              ) : null
-            ) : null}
+              ) : null}
 
             <Text style={styles.matchTypeText}>
               {matchData?.match_type?.replace("_", " ").toUpperCase() +
@@ -576,7 +531,7 @@ export default function MatchDetailModal({
 
         {/* --- TABS SYSTEM --- */}
         <View style={styles.tabContainer}>
-          {(["Summary", "Play-By-Play", "Live Stream"] as const).map((tab) => (
+          {(["Summary", "Live Stream"] as const).map((tab) => (
             <TouchableOpacity
               key={tab}
               onPress={() => setActiveTab(tab)}
@@ -607,9 +562,6 @@ export default function MatchDetailModal({
           />
         )}
 
-        {activeTab === "Play-By-Play" && (
-          <PlayByPlay match={matchData} HLTVData={HLTVData} />
-        )}
         {activeTab === "Live Stream" && <StreamView match={matchData} />}
       </BottomSheetScrollView>
     </BottomSheetModal>

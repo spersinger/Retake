@@ -1,14 +1,10 @@
 import { Image } from "expo-image";
 import { Pressable, StyleSheet, View } from "react-native";
-import { useRef, useEffect, useState } from "react";
-import LottieView from "lottie-react-native";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { useTheme } from "@/hooks/use-theme";
 import { useFavorites } from "@/hooks/use-favorites";
 import { Spacing } from "@/constants/theme";
-
-import AntDesign from "@expo/vector-icons/AntDesign";
 
 export interface Player {
   id: number;
@@ -40,15 +36,7 @@ export const Team = ({ team, onPress }: TeamProps) => {
   const theme = useTheme();
   const logoUri = team.dark_mode_image_url ?? team.image_url;
   const { isFavorite, toggleFavorite } = useFavorites();
-  const [isAnimating, setIsAnimating] = useState(false);
   const favorite = isFavorite(team.id);
-
-  const handleFavoritePress = () => {
-    toggleFavorite(team);
-    if (!favorite) {
-      setIsAnimating(true);
-    }
-  };
 
   return (
     <Pressable
@@ -97,23 +85,21 @@ export const Team = ({ team, onPress }: TeamProps) => {
         </ThemedView>
       </ThemedView>
 
-      <Pressable onPress={handleFavoritePress}>
-        <ThemedView style={styles.heartContainer}>
-          {!isAnimating ? (
-            <AntDesign
-              name="heart"
-              size={24}
-              color={favorite ? "#ff3144" : "white"}
-            />
-          ) : (
-            <LottieView
-              source={require("../../lottie/heart-anim.json")}
-              loop={false}
-              autoPlay
-              onAnimationFinish={() => setIsAnimating(false)}
-            />
-          )}
-        </ThemedView>
+      <Pressable
+        onPress={() => toggleFavorite(team)}
+        style={[
+          styles.subscribeButton,
+          favorite ? styles.subscribeButtonActive : styles.subscribeButtonInactive,
+        ]}
+      >
+        <ThemedText
+          style={[
+            styles.subscribeText,
+            favorite ? styles.subscribeTextActive : styles.subscribeTextInactive,
+          ]}
+        >
+          {favorite ? "Subscribed" : "Subscribe"}
+        </ThemedText>
       </Pressable>
     </Pressable>
   );
@@ -123,15 +109,7 @@ export const FavoriteCard = ({ team, onPress }: TeamProps) => {
   const theme = useTheme();
   const logoUri = team.dark_mode_image_url ?? team.image_url;
   const { isFavorite, toggleFavorite } = useFavorites();
-  const [isAnimating, setIsAnimating] = useState(false);
   const favorite = isFavorite(team.id);
-
-  const handleFavoritePress = () => {
-    toggleFavorite(team);
-    if (!favorite) {
-      setIsAnimating(true);
-    }
-  };
 
   return (
     <Pressable
@@ -157,27 +135,26 @@ export const FavoriteCard = ({ team, onPress }: TeamProps) => {
             </ThemedText>
           </View>
         )}
-        <Pressable onPress={handleFavoritePress} style={styles.favHeartBadge}>
-          {!isAnimating ? (
-            <AntDesign
-              name="heart"
-              size={14}
-              color={favorite ? "#ff3144" : "#ffffff"}
-            />
-          ) : (
-            <LottieView
-              source={require("../../lottie/heart-anim.json")}
-              loop={false}
-              autoPlay
-              style={styles.favHeartLottie}
-              onAnimationFinish={() => setIsAnimating(false)}
-            />
-          )}
-        </Pressable>
       </View>
       <ThemedText numberOfLines={1} style={styles.favName}>
         {team.name}
       </ThemedText>
+      <Pressable
+        onPress={() => toggleFavorite(team)}
+        style={[
+          styles.favSubscribeButton,
+          favorite ? styles.subscribeButtonActive : styles.subscribeButtonInactive,
+        ]}
+      >
+        <ThemedText
+          style={[
+            styles.favSubscribeText,
+            favorite ? styles.subscribeTextActive : styles.subscribeTextInactive,
+          ]}
+        >
+          {favorite ? "Unsubscribe" : "Subscribe"}
+        </ThemedText>
+      </Pressable>
     </Pressable>
   );
 };
@@ -225,28 +202,43 @@ const styles = StyleSheet.create({
   meta: {
     fontSize: 12,
   },
-  heartContainer: {
-    backgroundColor: "#0000",
-    width: 64,
-    height: 64,
-    alignItems: "center",
-    justifyContent: "center",
+  subscribeButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  subscribeButtonActive: {
+    backgroundColor: "rgba(255, 49, 68, 0.15)",
+    borderColor: "#ff3144",
+  },
+  subscribeButtonInactive: {
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: "rgba(255, 255, 255, 0.15)",
+  },
+  subscribeText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  subscribeTextActive: {
+    color: "#ff3144",
+  },
+  subscribeTextInactive: {
+    color: "rgba(255, 255, 255, 0.7)",
   },
   favCard: {
-    width: 96,
+    width: 108,
     alignItems: "center",
-    gap: Spacing.two,
+    gap: 6,
     padding: Spacing.two,
   },
   favLogoWrap: {
-    position: "relative",
     width: 64,
     height: 64,
   },
   favLogo: {
     width: 64,
     height: 64,
-    borderRadius: 32,
   },
   favLogoFallback: {
     width: 64,
@@ -259,22 +251,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
   },
-  favHeartBadge: {
-    position: "absolute",
-    right: -2,
-    bottom: -2,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "#1b2440",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#0a0e1f",
+  favSubscribeButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
   },
-  favHeartLottie: {
-    width: 26,
-    height: 26,
+  favSubscribeText: {
+    fontSize: 9,
+    fontWeight: "600",
   },
   favName: {
     fontSize: 12,

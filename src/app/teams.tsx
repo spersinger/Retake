@@ -141,9 +141,6 @@ export default function TeamTabScreen() {
             <ThemedText type="title" style={styles.title}>
               Teams
             </ThemedText>
-            <ThemedText themeColor="textSecondary" style={styles.subtitle}>
-              Follow teams to keep track of their matches
-            </ThemedText>
           </View>
 
           <View style={styles.searchRow}>
@@ -166,7 +163,6 @@ export default function TeamTabScreen() {
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
                 returnKeyType="search"
-                onSubmitEditing={cancelSearch}
               />
               {query.length > 0 && (
                 <Pressable onPress={clearSearch} hitSlop={8}>
@@ -187,7 +183,7 @@ export default function TeamTabScreen() {
 
           <View style={styles.section}>
             <ThemedText themeColor="textSecondary" style={styles.sectionHeader}>
-              Favorites
+              Subscribed
             </ThemedText>
             {favorites.length > 0 ? (
               <ScrollView
@@ -201,16 +197,11 @@ export default function TeamTabScreen() {
               </ScrollView>
             ) : (
               <ThemedView type="backgroundElement" style={styles.emptyHint}>
-                <AntDesign
-                  name="heart"
-                  size={18}
-                  color={theme.textSecondary}
-                />
                 <ThemedText
                   themeColor="textSecondary"
                   style={styles.emptyHintText}
                 >
-                  Tap the heart on any team to add them here.
+                  Subscribe to teams to track their matches.
                 </ThemedText>
               </ThemedView>
             )}
@@ -267,11 +258,9 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.five,
   },
   header: {
-    gap: Spacing.two,
     paddingTop: Spacing.two,
   },
   title: {},
-  subtitle: {},
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -284,8 +273,8 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 999,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.three,
   },
   searchFieldFocused: {
     borderWidth: 1,

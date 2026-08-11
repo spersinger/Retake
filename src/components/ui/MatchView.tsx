@@ -17,9 +17,10 @@ export const MatchView = ({ games, loading }: MatchViewTypes) => {
         <ActivityIndicator />
       ) : games && games.length > 0 ? (
         <>
-          {games?.map((game: MatchData) => (
+          {games?.map((game: MatchData, index: number) => (
             <View key={game.id}>
               <Match match={game} />
+              {index < games.length - 1 && <View style={styles.divider} />}
             </View>
           ))}
         </>
@@ -51,5 +52,9 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 14,
     opacity: 0.5,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.08)",
   },
 });

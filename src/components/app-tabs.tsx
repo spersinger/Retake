@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   innerContainer: {
-    paddingVertical: Spacing.two,
+    paddingVertical: 13,
     paddingHorizontal: Spacing.five,
     borderRadius: Spacing.five,
     flexDirection: "row",
