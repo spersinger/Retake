@@ -1,4 +1,4 @@
-Retake
+# Retake
 
 <p align="center">
   <img src="assets/images/app-screenshot.png" alt="App Screenshot" width="300" />
